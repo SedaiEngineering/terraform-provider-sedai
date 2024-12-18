@@ -26,28 +26,44 @@ resource "sedai_create_account" "eks_account" {
     cluster_provider = "AWS"
 }
 
-# Federated prometheus monitoring provider agentless with JWT
+# Federated prometheus monitoring provider with JWT
 resource "sedai_create_federated_prometheus_monitoring_provider" "federate_prometheus_monitoring_provider_jwt" {
     account_id = sedai_create_account.eks_account.id
-    integration_type = "AGENTLESS"
+    integration_type = "AGENTLESS/AGENT_BASED"
     endpoint = "endpoint"
     bearer_token = "bearer_token"
 }
 
-
-# Federated prometheus monitoring provider agentless with client credentials
+# Federated prometheus monitoring provider with client credentials
 resource "sedai_create_federated_prometheus_monitoring_provider" "federate_prometheus_monitoring_provider_client_creds" {
     account_id = sedai_create_account.eks_account.id
-    integration_type = "AGENTLESS"
+    integration_type = "AGENTLESS/AGENT_BASED"
     endpoint = "endpoint"
     token_endpoint = "token_endpoint"
     client_id = "client_id"
     client_secret = "client_secret"
 }
 
-# Federated prometheus monitoring provider agentless with no auth
+# Federated prometheus monitoring provider with no auth
 resource "sedai_create_federated_prometheus_monitoring_provider" "federate_prometheus_monitoring_provider_no_auth" {
     account_id = sedai_create_account.eks_account.id
-    integration_type = "AGENTLESS"
+    integration_type = "AGENTLESS/AGENT_BASED"
     endpoint = "endpoint"
+}
+
+# Datadog monitoring provider
+resource "sedai_create_datadog_monitoring_provider" "datadog_monitoring_provider" {
+    account_id = sedai_create_account.eks_account.id
+    integration_type = "AGENTLESS/AGENT_BASED"
+    api_key = "api_key"
+    application_key = "application_key"
+}
+
+# New relic monitoring provider
+resource "sedai_create_newrelic_monitoring_provider" "newrelic_monitoring_provider" {
+    account_id = sedai_create_account.eks_account.id
+    integration_type = "AGENTLESS/AGENT_BASED"
+    api_key = "api_key"
+    api_server = "api_server"
+    newrelic_account_id = "newrelic_account_id"
 }
