@@ -40,7 +40,7 @@ type gkeMonitoringProviderModel struct {
 
 // Metadata returns the resource type name.
 func (r *createGkeMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_gke_mp"
+	resp.TypeName = req.ProviderTypeName + "_create_gke_monitoring_provider"
 }
 
 // Schema defines the schema for the resource.
@@ -170,7 +170,7 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 	state.ContainerDimensions, _ = types.ListValueFrom(ctx, types.StringType, getDimensionFromResponse(fetchedMonitoringProvider, "containerDimensions"))
 	state.NamespaceDimensions, _ = types.ListValueFrom(ctx, types.StringType, getDimensionFromResponse(fetchedMonitoringProvider, "namespaceDimensions"))
 	state.ClusterDimensions, _ = types.ListValueFrom(ctx, types.StringType, getDimensionFromResponse(fetchedMonitoringProvider, "clusterDimensions"))
-	state.AccountId = basetypes.NewStringValue(fetchedMonitoringProvider["accountId"].(string)) 
+	state.AccountId = basetypes.NewStringValue(fetchedMonitoringProvider["accountId"].(string))
 	state.ProjectId = basetypes.NewStringValue(fetchedMonitoringProvider["details"].(map[string]interface{})["projectId"].(string))
 
 	diags = resp.State.Set(ctx, state)
