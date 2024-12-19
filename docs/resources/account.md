@@ -79,15 +79,15 @@ resource "sedai_create_account" "gke_account_agent_based" {
 
 ### Optional
 
-- `role` (String) Role ARN
-- `external_id` (String) External ID
-- `access_key` (String) Access key
-- `secret_key` (String) Secret key
-- `region` (String) Region
-- `zone` (String) Zone
-- `project_id` (String) Project ID
-- `cluster_url` (String) Cluster URL
-- `service_account_json` (String) Service account JSON content
+- `role` (String) Role ARN for the AWS account (only for AWS with role based integration)
+- `external_id` (String) External ID for the AWS account (only for AWS with role based integration)
+- `access_key` (String) Access key (only for AWS with key based integration)
+- `secret_key` (String) Secret key (only for AWS with key based integration)
+- `region` (String) Region (only for agentless integration)
+- `zone` (String) Zone (only for gke agentless integration)
+- `project_id` (String) Project ID (only for gke agentless integration)
+- `cluster_url` (String) Cluster URL (only for agentless integration)
+- `service_account_json` (String) Service account JSON content (only for gke agentless integration)
 
 ### Read-Only
 

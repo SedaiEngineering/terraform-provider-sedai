@@ -3,6 +3,7 @@ module terraform-provider-sedai
 go 1.22.7
 
 require (
+	github.com/SedaiEngineering/sedai-sdk-go v1.0.0
 	github.com/hashicorp/terraform-plugin-framework v1.13.0
 	github.com/hashicorp/terraform-plugin-go v0.25.0
 	github.com/hashicorp/terraform-plugin-log v0.9.0
@@ -11,7 +12,6 @@ require (
 
 require (
 	github.com/ProtonMail/go-crypto v1.1.0-alpha.2 // indirect
-	github.com/SedaiEngineering/sedai-sdk-go v1.0.0 // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
