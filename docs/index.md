@@ -3,7 +3,7 @@
 page_title: "sedai Provider"
 subcategory: ""
 description: |-
-    Sedai provider is used handle the lifecycle of resources like Sedai account and Sedai monitoring provider  
+    Sedai provider is used handle the lifecycle of sedai resources like Sedai account and Sedai monitoring provider  
 ---
 
 # Sedai Provider
