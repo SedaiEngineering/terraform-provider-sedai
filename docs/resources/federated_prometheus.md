@@ -6,7 +6,7 @@ description: |-
   Example resource
 ---
 
-# sedai_create_federated_prometheun_monitoring_provider (Resource)
+# sedai_create_federated_prometheus_monitoring_provider (Resource)
 
 Federated prometheus monitoring provider Resource
 
