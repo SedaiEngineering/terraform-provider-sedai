@@ -25,6 +25,10 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      - name: Configure Git Authentication for Private Modules
+        run: |
+          git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
+          go env -w GOPRIVATE=github.com/SedaiEngineering/sedai-sdk-go    
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@cb9bde2e2525e640591a934b1fd28eef1dcaf5e5 # v6.2.0
         id: import_gpg
