@@ -163,7 +163,11 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 		plan.AgentApiKey = basetypes.NewStringValue(agentInstallationCommand["apiKey"].(string))
 		plan.KubeInstallCmd = basetypes.NewStringValue(agentInstallationCommand["kubeInstallCmd"].(string))
 		plan.HelmInstallCmd = basetypes.NewStringValue(agentInstallationCommand["helmInstallCmd"].(string))
-		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
+		if agentInstallationCommand["createSecretKubectlCmd"] != nil {
+			plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
+		} else {
+			plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		}
 	} else {
 		plan.AgentApiKey = basetypes.NewStringValue("")
 		plan.KubeInstallCmd = basetypes.NewStringValue("")
@@ -228,6 +232,27 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to create account", err.Error())
 		return
+	}
+
+	if plan.IntegrationType == "AGENT_BASED" {
+		agentInstallationCommand, err := account.GetAgentInstallationCommand(plan.Name)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
+			return
+		}
+		plan.AgentApiKey = basetypes.NewStringValue(agentInstallationCommand["apiKey"].(string))
+		plan.KubeInstallCmd = basetypes.NewStringValue(agentInstallationCommand["kubeInstallCmd"].(string))
+		plan.HelmInstallCmd = basetypes.NewStringValue(agentInstallationCommand["helmInstallCmd"].(string))
+		if agentInstallationCommand["createSecretKubectlCmd"] != nil {
+			plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
+		} else {
+			plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		}
+	} else {
+		plan.AgentApiKey = basetypes.NewStringValue("")
+		plan.KubeInstallCmd = basetypes.NewStringValue("")
+		plan.HelmInstallCmd = basetypes.NewStringValue("")
+		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
 	}
 
 	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
