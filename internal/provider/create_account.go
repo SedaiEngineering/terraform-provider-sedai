@@ -6,6 +6,7 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
@@ -43,6 +44,11 @@ type accountModel struct {
 	KubeInstallCmd         basetypes.StringValue `tfsdk:"kube_install_cmd"`
 	HelmInstallCmd         basetypes.StringValue `tfsdk:"helm_install_cmd"`
 	CreateSecretKubectlCmd basetypes.StringValue `tfsdk:"create_secret_kubectl_cmd"`
+	TenantId                    basetypes.StringValue `tfsdk:"tenant_id"`
+	SubscriptionId              basetypes.StringValue `tfsdk:"subscription_id"`
+	ClientId                    basetypes.StringValue `tfsdk:"client_id"`
+	ClientSecret                basetypes.StringValue `tfsdk:"client_secret"`
+	UserSelectedManagedServices basetypes.ListValue   `tfsdk:"user_selected_managed_services"`
 }
 
 // Metadata returns the resource type name.
@@ -133,6 +139,23 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"create_secret_kubectl_cmd": schema.StringAttribute{
 				Computed: true,
 				Required: false,
+			},
+			"tenant_id": schema.StringAttribute{
+				Optional: true,
+			},
+			"subscription_id": schema.StringAttribute{
+				Optional: true,
+			},
+			"client_id": schema.StringAttribute{
+				Optional: true,
+			},
+			"client_secret": schema.StringAttribute{
+				Optional:  true,
+				Sensitive: true,
+			},
+			"user_selected_managed_services": schema.ListAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
 			},
 		},
 	}
@@ -282,6 +305,14 @@ func (r *createAccount) Delete(ctx context.Context, req resource.DeleteRequest, 
 }
 
 func createCredentials(plan accountModel) interface{} {
+	if plan.CloudProvider == "AZURE" {
+		return credentials.NewAzureClientCredentials(plan.ClientId.ValueString(), plan.ClientSecret.ValueString())
+	}
+
+	if plan.CloudProvider == "GCP" {
+		return credentials.NewGCPServiceAccountJsonCredentials(plan.ServiceAccountJson.ValueString())
+	}
+
 	// Check if role and external id are provided.
 	if plan.Role.ValueString() != "" && plan.ExternalId.ValueString() != "" {
 		return credentials.NewAwsRoleCredentials(plan.Role.ValueString(), plan.ExternalId.ValueString())
@@ -342,6 +373,15 @@ func createAccountRequest(plan accountModel) account.CreateAccountRequest {
 	}
 	if plan.CACertificate.ValueString() != "" {
 		createAccountRequest.CaCertificate = plan.CACertificate.ValueString()
+	}
+	if plan.TenantId.ValueString() != "" {
+		createAccountRequest.TenantId = plan.TenantId.ValueString()
+	}
+	if plan.SubscriptionId.ValueString() != "" {
+		createAccountRequest.SubscriptionId = plan.SubscriptionId.ValueString()
+	}
+	if !plan.UserSelectedManagedServices.IsNull() && !plan.UserSelectedManagedServices.IsUnknown() {
+		createAccountRequest.UserSelectedManagedServices = convertFromBaseTypes(plan.UserSelectedManagedServices)
 	}
 
 	return createAccountRequest

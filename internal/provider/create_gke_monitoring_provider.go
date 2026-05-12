@@ -296,7 +296,7 @@ func convertFromBaseTypes(baseTypeString basetypes.ListValue) []string {
 	elements := baseTypeString.Elements()
 	result := make([]string, len(elements))
 	for i, sv := range elements {
-		result[i] = sv.String()
+		result[i] = sv.(types.String).ValueString()
 	}
 	return result
 }
