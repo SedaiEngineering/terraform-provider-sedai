@@ -13,8 +13,24 @@
 | `external_id` | string | no | External ID for the IAM role |
 | `access_key` | string | no | AWS access key (static credentials) |
 | `secret_key` | string | no | AWS secret key (static credentials) |
+| `user_selected_managed_services` | list(string) | no | AWS services to enable (see below) |
 
 **Credential priority:** `role` → `access_key`/`secret_key` → env-supplied
+
+**`user_selected_managed_services` valid values:**
+
+| Value | Description |
+|-------|-------------|
+| `"LAMBDA"` | Lambda functions |
+| `"EC2"` | EC2 virtual machines |
+| `"ECS"` | ECS containers |
+| `"EKS"` | EKS Kubernetes |
+| `"EBS"` | EBS storage |
+| `"EFS"` | EFS storage |
+| `"S3"` | S3 storage |
+| `"RDS"` | RDS databases |
+| `"DYNAMO_DB"` | DynamoDB |
+| `"DATABRICKS"` | Databricks on AWS |
 
 ```hcl
 resource "sedai_create_account" "aws" {

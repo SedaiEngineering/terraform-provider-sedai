@@ -103,8 +103,8 @@ func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.Schem
 				ElementType: types.StringType,
 			},
 			"service_account_json": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:  true,
+				Sensitive: true,
 			},
 		},
 	}
@@ -172,6 +172,7 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 	state.ClusterDimensions, _ = types.ListValueFrom(ctx, types.StringType, getDimensionFromResponse(fetchedMonitoringProvider, "clusterDimensions"))
 	state.AccountId = basetypes.NewStringValue(fetchedMonitoringProvider["accountId"].(string))
 	state.ProjectId = basetypes.NewStringValue(fetchedMonitoringProvider["details"].(map[string]interface{})["projectId"].(string))
+	// service_account_json is never returned by the API — preserved from prior state.
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)

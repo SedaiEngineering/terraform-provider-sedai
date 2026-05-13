@@ -204,18 +204,20 @@ func (r *createCloudWatchMonitoringProvider) Delete(ctx context.Context, req res
 }
 
 func buildCloudWatchRequest(plan cloudWatchMonitoringProviderModel) monitoringProvider.CreateCloudWatchMonitoringProviderRequest {
+	useAccountCreds := plan.UseAccountCredentials.IsNull() || plan.UseAccountCredentials.ValueBool()
+
 	req := monitoringProvider.CreateCloudWatchMonitoringProviderRequest{
+		ID:                    plan.ID.ValueString(),
 		AccountId:             plan.AccountId.ValueString(),
-		UseAccountCredentials: true,
+		UseAccountCredentials: useAccountCreds,
 	}
 
-	// explicit credentials override account credentials
-	if plan.Role.ValueString() != "" {
-		req.UseAccountCredentials = false
-		req.Credentials = credentials.NewAwsRoleCredentials(plan.Role.ValueString(), plan.ExternalId.ValueString())
-	} else if plan.AccessKey.ValueString() != "" && plan.SecretKey.ValueString() != "" {
-		req.UseAccountCredentials = false
-		req.Credentials = credentials.NewAwsKeyCredentials(plan.AccessKey.ValueString(), plan.SecretKey.ValueString())
+	if !useAccountCreds {
+		if plan.Role.ValueString() != "" {
+			req.Credentials = credentials.NewAwsRoleCredentials(plan.Role.ValueString(), plan.ExternalId.ValueString())
+		} else if plan.AccessKey.ValueString() != "" && plan.SecretKey.ValueString() != "" {
+			req.Credentials = credentials.NewAwsKeyCredentials(plan.AccessKey.ValueString(), plan.SecretKey.ValueString())
+		}
 	}
 
 	if !plan.LbDimensions.IsNull() {
