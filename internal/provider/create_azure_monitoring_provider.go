@@ -41,56 +41,68 @@ func (r *createAzureMonitoringProvider) Metadata(_ context.Context, req resource
 
 func (r *createAzureMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Creates an Azure Monitor monitoring provider for an Azure account. Uses the account's service principal credentials automatically.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Monitoring provider ID.",
 			},
 			"account_id": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Sedai account ID to associate this monitoring provider with.",
 			},
 			"name": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Monitoring provider name (populated by Sedai).",
 			},
 			"integration_type": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Integration type (populated from the account).",
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Load balancer dimension filters.",
 			},
 			"app_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Application dimension filters.",
 			},
 			"instance_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Instance dimension filters.",
 			},
 			"region_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Region dimension filters.",
 			},
 			"container_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Container dimension filters.",
 			},
 			"namespace_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Namespace dimension filters.",
 			},
 			"cluster_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Cluster dimension filters.",
 			},
 		},
 	}

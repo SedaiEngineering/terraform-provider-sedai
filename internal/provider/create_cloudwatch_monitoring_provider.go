@@ -43,54 +43,67 @@ func (r *createCloudWatchMonitoringProvider) Metadata(_ context.Context, req res
 
 func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Creates a CloudWatch monitoring provider for an AWS account.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Monitoring provider ID.",
 			},
 			"account_id": schema.StringAttribute{
-				Required: true,
+				Required:    true,
+				Description: "Sedai account ID to associate this monitoring provider with.",
 			},
 			"name": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Monitoring provider name (populated by Sedai).",
 			},
 			"integration_type": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Integration type (populated from the account).",
 			},
 			"use_account_credentials": schema.BoolAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Use the AWS credentials from the account. Defaults to true. Set to false to provide an explicit role or access key.",
 			},
 			"access_key": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "AWS access key. Used when `use_account_credentials = false`.",
 			},
 			"secret_key": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "AWS secret key. Used when `use_account_credentials = false`.",
 			},
 			"role": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "IAM role ARN override for CloudWatch access.",
 			},
 			"external_id": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "External ID for the IAM role override.",
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Load balancer dimension filters.",
 			},
 			"app_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Application dimension filters.",
 			},
 			"instance_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Instance dimension filters.",
 			},
 		},
 	}

@@ -1,0 +1,8 @@
+# New Relic monitoring provider
+resource "sedai_create_newrelic_monitoring_provider" "newrelic_mp" {
+  account_id          = sedai_create_account.eks_account.id
+  integration_type    = sedai_create_account.eks_account.integration_type
+  api_key             = "api_key"
+  api_server          = "https://api.newrelic.com"
+  newrelic_account_id = "newrelic_account_id"
+}

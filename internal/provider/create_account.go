@@ -61,106 +61,115 @@ func (r *createAccount) Metadata(_ context.Context, req resource.MetadataRequest
 // Schema defines the schema for the resource.
 func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Creates a Sedai account for a cloud provider.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Sedai account ID.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:    true,
+				Description: "Account name.",
 			},
 			"cloud_provider": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:    true,
+				Description: "Cloud provider. Valid values: `AWS`, `AZURE`, `GCP`, `KUBERNETES`.",
 			},
 			"integration_type": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:    true,
+				Description: "Integration type. Valid values: `AGENTLESS`, `AGENT_BASED`.",
 			},
 			"cluster_provider": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "Kubernetes cluster provider. Required when `cloud_provider = \"KUBERNETES\"`. Valid values: `AWS`, `GCP`, `AZURE`, `SELF_MANAGED`.",
 			},
 			"cluster_url": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "Cluster API server URL. Required for agentless Kubernetes.",
 			},
 			"project_id": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "GCP project ID. Required for GCP and Kubernetes GCP accounts.",
 			},
 			"zone": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "GCP zone. Used for zonal GKE clusters.",
 			},
 			"region": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "Cluster region. Used for Kubernetes accounts.",
 			},
 			"is_zonal_cluster": schema.BoolAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "Whether the GKE cluster is zonal (vs regional).",
 			},
 			"service_account_json": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "GCP service account JSON key. Required for GCP and Kubernetes GCP accounts.",
 			},
 			"ca_certificate": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Optional:    true,
+				Description: "CA certificate for cluster TLS verification (Kubernetes agentless).",
 			},
 			"role": schema.StringAttribute{
-				Optional: true,
-				Computed: false,
+				Optional:    true,
+				Description: "IAM role ARN for role-based authentication (AWS / Kubernetes AWS).",
 			},
 			"external_id": schema.StringAttribute{
-				Optional: true,
-				Computed: false,
+				Optional:    true,
+				Description: "External ID for the IAM role (AWS / Kubernetes AWS).",
 			},
 			"access_key": schema.StringAttribute{
-				Optional: true,
-				Computed: false,
+				Optional:    true,
+				Description: "AWS access key for static credential authentication.",
 			},
 			"secret_key": schema.StringAttribute{
-				Optional: true,
-				Computed: false,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "AWS secret key for static credential authentication.",
 			},
 			"agent_api_key": schema.StringAttribute{
-				Computed: true,
-				Required: false,
+				Computed:    true,
+				Description: "Agent API key. Populated only for `AGENT_BASED` integration.",
 			},
 			"kube_install_cmd": schema.StringAttribute{
-				Computed: true,
-				Required: false,
+				Computed:    true,
+				Description: "kubectl command to install the Sedai agent. Populated only for `AGENT_BASED` integration.",
 			},
 			"helm_install_cmd": schema.StringAttribute{
-				Computed: true,
-				Required: false,
+				Computed:    true,
+				Description: "Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration.",
 			},
 			"create_secret_kubectl_cmd": schema.StringAttribute{
-				Computed: true,
-				Required: false,
+				Computed:    true,
+				Description: "kubectl command to create the agent secret. Populated only for `AGENT_BASED` integration.",
 			},
 			"tenant_id": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Azure Active Directory tenant ID. Required for Azure accounts.",
 			},
 			"subscription_id": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Azure subscription ID. Required for Azure accounts.",
 			},
 			"client_id": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Azure service principal client ID. Required for Azure accounts.",
 			},
 			"client_secret": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Azure service principal client secret. Required for Azure accounts.",
 			},
 			"user_selected_managed_services": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Cloud services to enable. AWS values: `LAMBDA`, `EC2`, `ECS`, `EBS`, `EFS`, `S3`, `RDS`, `DYNAMO_DB`, `DATABRICKS`. Azure values: `VM`, `AZURE_DISK`, `AZURE_BLOB`, `DATABRICKS`. GCP values: `GCE`, `DATAFLOW`, `GCP_DISK`, `CLOUD_STORAGE`, `BIG_QUERY`, `DATABRICKS`.",
 			},
 		},
 	}
