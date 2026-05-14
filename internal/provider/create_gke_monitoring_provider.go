@@ -171,6 +171,10 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 		resp.Diagnostics.AddError("Unable to read monitoring provider", err.Error())
 		return
 	}
+	if fetchedMonitoringProvider == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 
 	state.ID = basetypes.NewStringValue(fetchedMonitoringProvider["id"].(string))
 	state.Name = basetypes.NewStringValue(fetchedMonitoringProvider["name"].(string))

@@ -142,6 +142,10 @@ func (r *createAzureMonitoringProvider) Read(ctx context.Context, req resource.R
 		resp.Diagnostics.AddError("Unable to read Azure monitoring provider", err.Error())
 		return
 	}
+	if fetched == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 
 	setAzureMonitoringState(ctx, &state, fetched)
 	state.AccountId = basetypes.NewStringValue(fetched["accountId"].(string))

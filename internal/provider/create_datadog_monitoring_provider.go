@@ -178,6 +178,10 @@ func (r *createDatadogMonitoringProvider) Read(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Unable to read monitoring provider", err.Error())
 		return
 	}
+	if response == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 
 	state.ID = basetypes.NewStringValue(response["id"].(string))
 	state.Name = basetypes.NewStringValue(response["name"].(string))

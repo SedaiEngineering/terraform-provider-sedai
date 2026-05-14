@@ -149,6 +149,10 @@ func (r *createCloudWatchMonitoringProvider) Read(ctx context.Context, req resou
 		resp.Diagnostics.AddError("Unable to read CloudWatch monitoring provider", err.Error())
 		return
 	}
+	if fetched == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 
 	state.ID = basetypes.NewStringValue(fetched["id"].(string))
 	state.Name = basetypes.NewStringValue(fetched["name"].(string))
