@@ -3,7 +3,7 @@ module terraform-provider-sedai
 go 1.22.7
 
 require (
-	github.com/SedaiEngineering/sedai-sdk-go v1.0.0
+	github.com/SedaiEngineering/sedai-sdk-go v1.1.0
 	github.com/hashicorp/terraform-plugin-framework v1.13.0
 )
 
