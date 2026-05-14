@@ -24,7 +24,6 @@
 | `"LAMBDA"` | Lambda functions |
 | `"EC2"` | EC2 virtual machines |
 | `"ECS"` | ECS containers |
-| `"EKS"` | EKS Kubernetes |
 | `"EBS"` | EBS storage |
 | `"EFS"` | EFS storage |
 | `"S3"` | S3 storage |
@@ -92,7 +91,6 @@ resource "sedai_create_cloudwatch_monitoring_provider" "aws" {
 | Value | Description |
 |-------|-------------|
 | `"VM"` | Azure Virtual Machines |
-| `"AKS"` | AKS Kubernetes |
 | `"AZURE_DISK"` | Azure Disk storage |
 | `"AZURE_BLOB"` | Azure Blob storage |
 | `"DATABRICKS"` | Databricks on Azure |
@@ -106,7 +104,7 @@ resource "sedai_create_account" "azure" {
   subscription_id                = var.subscription_id
   client_id                      = var.client_id
   client_secret                  = var.client_secret
-  user_selected_managed_services = ["VM", "AKS", "AZURE_DISK", "AZURE_BLOB"]
+  user_selected_managed_services = ["VM", "AZURE_DISK", "AZURE_BLOB"]
 }
 ```
 
