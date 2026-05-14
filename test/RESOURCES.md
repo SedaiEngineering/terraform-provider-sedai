@@ -34,11 +34,12 @@
 
 ```hcl
 resource "sedai_create_account" "aws" {
-  name             = "my-aws-account"
-  cloud_provider   = "AWS"
-  integration_type = "AGENTLESS"
-  role             = "arn:aws:iam::123456789:role/SedaiRole"
-  external_id      = "ext-123456789"
+  name                           = "my-aws-account"
+  cloud_provider                 = "AWS"
+  integration_type               = "AGENTLESS"
+  role                           = "arn:aws:iam::123456789:role/SedaiRole"
+  external_id                    = "ext-123456789"
+  user_selected_managed_services = ["EC2", "ECS", "RDS", "S3"]
 }
 ```
 
@@ -84,16 +85,28 @@ resource "sedai_create_cloudwatch_monitoring_provider" "aws" {
 | `subscription_id` | string | yes | Azure subscription ID |
 | `client_id` | string | yes | Service principal client ID |
 | `client_secret` | string | yes | Service principal client secret (sensitive) |
+| `user_selected_managed_services` | list(string) | no | Azure services to enable (see below) |
+
+**`user_selected_managed_services` valid values:**
+
+| Value | Description |
+|-------|-------------|
+| `"VM"` | Azure Virtual Machines |
+| `"AKS"` | AKS Kubernetes |
+| `"AZURE_DISK"` | Azure Disk storage |
+| `"AZURE_BLOB"` | Azure Blob storage |
+| `"DATABRICKS"` | Databricks on Azure |
 
 ```hcl
 resource "sedai_create_account" "azure" {
-  name             = "my-azure-account"
-  cloud_provider   = "AZURE"
-  integration_type = "AGENTLESS"
-  tenant_id        = var.tenant_id
-  subscription_id  = var.subscription_id
-  client_id        = var.client_id
-  client_secret    = var.client_secret
+  name                           = "my-azure-account"
+  cloud_provider                 = "AZURE"
+  integration_type               = "AGENTLESS"
+  tenant_id                      = var.tenant_id
+  subscription_id                = var.subscription_id
+  client_id                      = var.client_id
+  client_secret                  = var.client_secret
+  user_selected_managed_services = ["VM", "AKS", "AZURE_DISK", "AZURE_BLOB"]
 }
 ```
 
@@ -177,6 +190,34 @@ resource "sedai_create_account" "gcp" {
 
 ---
 
+### `sedai_create_gke_monitoring_provider`
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `account_id` | string | yes | Sedai account ID |
+| `project_id` | string | yes | GCP project ID |
+| `service_account_json` | string | yes | GCP service account JSON (sensitive) |
+| `integration_type` | string | no | `"AGENTLESS"` or `"AGENT_BASED"` (default: `"AGENT_BASED"`) |
+| `lb_dimensions` | list(string) | no | Default: `["destination_service_name"]` |
+| `app_dimensions` | list(string) | no | Default: `["application_id"]` |
+| `instance_dimensions` | list(string) | no | Default: `["pod_name"]` |
+| `region_dimensions` | list(string) | no | Default: `["location"]` |
+| `container_dimensions` | list(string) | no | Default: `["container_name"]` |
+| `namespace_dimensions` | list(string) | no | Default: `["destination_service_namespace", "namespace_name"]` |
+| `cluster_dimensions` | list(string) | no | Default: `["cluster_name"]` |
+
+```hcl
+resource "sedai_create_gke_monitoring_provider" "gcp" {
+  account_id           = sedai_create_account.gcp.id
+  project_id           = var.project_id
+  service_account_json = var.service_account_json
+
+  depends_on = [sedai_create_account.gcp]
+}
+```
+
+---
+
 ## Kubernetes
 
 ### `sedai_create_account`
@@ -198,21 +239,3 @@ resource "sedai_create_account" "gcp" {
 | `zone` | string | no | GCP zone (GCP cluster provider) |
 | `is_zonal_cluster` | bool | no | Whether the GKE cluster is zonal |
 | `service_account_json` | string | no | GCP service account JSON (GCP cluster provider) |
-
----
-
-### `sedai_create_gke_monitoring_provider`
-
-| Attribute | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `account_id` | string | yes | Sedai account ID |
-| `project_id` | string | yes | GCP project ID |
-| `service_account_json` | string | yes | GCP service account JSON |
-| `integration_type` | string | no | `"AGENTLESS"` or `"AGENT_BASED"` (default: `"AGENT_BASED"`) |
-| `lb_dimensions` | list(string) | no | Default: `["destination_service_name"]` |
-| `app_dimensions` | list(string) | no | Default: `["application_id"]` |
-| `instance_dimensions` | list(string) | no | Default: `["pod_name"]` |
-| `region_dimensions` | list(string) | no | Default: `["location"]` |
-| `container_dimensions` | list(string) | no | Default: `["container_name"]` |
-| `namespace_dimensions` | list(string) | no | Default: `["destination_service_namespace", "namespace_name"]` |
-| `cluster_dimensions` | list(string) | no | Default: `["cluster_name"]` |
