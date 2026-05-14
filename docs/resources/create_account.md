@@ -63,6 +63,27 @@ resource "sedai_create_account" "eks_account" {
   cluster_provider = "AWS"
 }
 
+# Kubernetes (AKS) — agent-based
+resource "sedai_create_account" "aks_account_agent" {
+  name             = "my-aks-account"
+  cloud_provider   = "KUBERNETES"
+  integration_type = "AGENT_BASED"
+  cluster_provider = "AZURE"
+}
+
+# Kubernetes (AKS) — agentless
+resource "sedai_create_account" "aks_account_agentless" {
+  name             = "my-aks-account-agentless"
+  cloud_provider   = "KUBERNETES"
+  integration_type = "AGENTLESS"
+  cluster_provider = "AZURE"
+  tenant_id        = "tenant-id"
+  subscription_id  = "subscription-id"
+  client_id        = "client-id"
+  client_secret    = "client-secret"
+  cluster_url      = "https://my-aks-endpoint"
+}
+
 # Kubernetes (GKE) — agentless
 resource "sedai_create_account" "gke_account" {
   name                 = "my-gke-account"
