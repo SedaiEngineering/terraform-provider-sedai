@@ -1,0 +1,172 @@
+package provider
+
+import (
+	"context"
+
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+)
+
+var (
+	_ resource.Resource = &createBigQueryMonitoringProvider{}
+)
+
+func CreateBigQueryMonitoringProvider() resource.Resource {
+	return &createBigQueryMonitoringProvider{}
+}
+
+type createBigQueryMonitoringProvider struct{}
+
+type bigQueryMonitoringProviderModel struct {
+	ID              basetypes.StringValue `tfsdk:"id"`
+	AccountId       basetypes.StringValue `tfsdk:"account_id"`
+	ProjectId       basetypes.StringValue `tfsdk:"project_id"`
+	Name            basetypes.StringValue `tfsdk:"name"`
+	IntegrationType basetypes.StringValue `tfsdk:"integration_type"`
+}
+
+func (r *createBigQueryMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_create_bigquery_monitoring_provider"
+}
+
+func (r *createBigQueryMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+				Optional: true,
+			},
+			"account_id": schema.StringAttribute{
+				Required: true,
+			},
+			"project_id": schema.StringAttribute{
+				Required: true,
+			},
+			"name": schema.StringAttribute{
+				Computed: true,
+				Optional: true,
+			},
+			"integration_type": schema.StringAttribute{
+				Computed: true,
+				Optional: true,
+			},
+		},
+	}
+}
+
+func (r *createBigQueryMonitoringProvider) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan bigQueryMonitoringProviderModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	response, err := monitoringProvider.AddBigQueryMonitoringProvider(buildBigQueryRequest(plan))
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to create BigQuery monitoring provider", err.Error())
+		return
+	}
+
+	setBigQueryState(&plan, response)
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *createBigQueryMonitoringProvider) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state bigQueryMonitoringProviderModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	fetched, err := monitoringProvider.GetMonitoringProviderById(state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read BigQuery monitoring provider", err.Error())
+		return
+	}
+
+	setBigQueryState(&state, fetched)
+	state.AccountId = basetypes.NewStringValue(fetched["accountId"].(string))
+	if details, ok := fetched["details"].(map[string]interface{}); ok {
+		state.ProjectId = basetypes.NewStringValue(details["projectId"].(string))
+	}
+
+	diags = resp.State.Set(ctx, state)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *createBigQueryMonitoringProvider) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan bigQueryMonitoringProviderModel
+	var state bigQueryMonitoringProviderModel
+	diags := req.Plan.Get(ctx, &plan)
+	req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	plan.ID = state.ID
+	response, err := monitoringProvider.AddBigQueryMonitoringProvider(buildBigQueryRequest(plan))
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to update BigQuery monitoring provider", err.Error())
+		return
+	}
+
+	setBigQueryState(&plan, response)
+
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+}
+
+func (r *createBigQueryMonitoringProvider) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state bigQueryMonitoringProviderModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	fetchedAccount, err := account.SearchAccountsById(state.AccountId.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read account", err.Error())
+		return
+	}
+	if fetchedAccount == nil {
+		return
+	}
+
+	deleted, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
+	if err != nil || !deleted {
+		resp.Diagnostics.AddError("Unable to delete BigQuery monitoring provider", err.Error())
+		return
+	}
+}
+
+func buildBigQueryRequest(plan bigQueryMonitoringProviderModel) monitoringProvider.CreateBigQueryMonitoringProviderRequest {
+	req := monitoringProvider.CreateBigQueryMonitoringProviderRequest{
+		AccountId: plan.AccountId.ValueString(),
+		ProjectId: plan.ProjectId.ValueString(),
+	}
+	if plan.ID.ValueString() != "" {
+		req.ID = plan.ID.ValueString()
+	}
+	if plan.Name.ValueString() != "" {
+		req.Name = plan.Name.ValueString()
+	}
+	if plan.IntegrationType.ValueString() != "" {
+		req.IntegrationType = plan.IntegrationType.ValueString()
+	}
+	return req
+}
+
+func setBigQueryState(m *bigQueryMonitoringProviderModel, r map[string]interface{}) {
+	m.ID = basetypes.NewStringValue(r["id"].(string))
+	m.Name = basetypes.NewStringValue(r["name"].(string))
+	m.IntegrationType = basetypes.NewStringValue(r["integrationType"].(string))
+}

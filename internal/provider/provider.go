@@ -60,5 +60,7 @@ func (p *sedaiProvider) Resources(_ context.Context) []func() resource.Resource 
 		CreateDatadogMonitoringProvider,
 		CreateNewrelicMonitoringProvider,
 		CreateVMMonitoringProvider,
+		CreateCloudWatchMonitoringProvider,
+		CreateAzureMonitoringProvider,
 	}
 }

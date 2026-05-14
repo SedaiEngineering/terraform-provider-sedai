@@ -46,65 +46,77 @@ func (r *createGkeMonitoringProvider) Metadata(_ context.Context, req resource.M
 // Schema defines the schema for the resource.
 func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: "Creates a GKE monitoring provider for a Kubernetes GCP account.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Monitoring provider ID.",
 			},
 			"account_id": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:    true,
+				Description: "Sedai account ID to associate this monitoring provider with.",
 			},
 			"project_id": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:    true,
+				Description: "GCP project ID.",
 			},
 			"name": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Monitoring provider name (populated by Sedai).",
 			},
 			"integration_type": schema.StringAttribute{
-				Computed: true,
-				Optional: true,
+				Computed:    true,
+				Optional:    true,
+				Description: "Integration type (populated from the account).",
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Load balancer dimension filters.",
 			},
 			"app_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Application dimension filters.",
 			},
 			"instance_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Instance dimension filters.",
 			},
 			"region_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Region dimension filters.",
 			},
 			"container_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Container dimension filters.",
 			},
 			"namespace_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Namespace dimension filters.",
 			},
 			"cluster_dimensions": schema.ListAttribute{
 				Computed:    true,
 				Optional:    true,
 				ElementType: types.StringType,
+				Description: "Cluster dimension filters.",
 			},
 			"service_account_json": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Required:    true,
+				Sensitive:   true,
+				Description: "GCP service account JSON key with Monitoring Viewer permissions.",
 			},
 		},
 	}
@@ -159,6 +171,10 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 		resp.Diagnostics.AddError("Unable to read monitoring provider", err.Error())
 		return
 	}
+	if fetchedMonitoringProvider == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 
 	state.ID = basetypes.NewStringValue(fetchedMonitoringProvider["id"].(string))
 	state.Name = basetypes.NewStringValue(fetchedMonitoringProvider["name"].(string))
@@ -172,6 +188,7 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 	state.ClusterDimensions, _ = types.ListValueFrom(ctx, types.StringType, getDimensionFromResponse(fetchedMonitoringProvider, "clusterDimensions"))
 	state.AccountId = basetypes.NewStringValue(fetchedMonitoringProvider["accountId"].(string))
 	state.ProjectId = basetypes.NewStringValue(fetchedMonitoringProvider["details"].(map[string]interface{})["projectId"].(string))
+	// service_account_json is never returned by the API — preserved from prior state.
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -296,7 +313,7 @@ func convertFromBaseTypes(baseTypeString basetypes.ListValue) []string {
 	elements := baseTypeString.Elements()
 	result := make([]string, len(elements))
 	for i, sv := range elements {
-		result[i] = sv.String()
+		result[i] = sv.(types.String).ValueString()
 	}
 	return result
 }
