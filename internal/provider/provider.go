@@ -39,7 +39,20 @@ func (p *sedaiProvider) Metadata(_ context.Context, _ provider.MetadataRequest, 
 
 // Schema defines the provider-level schema for configuration data.
 func (p *sedaiProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
-	resp.Schema = schema.Schema{}
+	resp.Schema = schema.Schema{
+		Description: "The Sedai provider manages Sedai accounts and monitoring providers. Authentication is configured via environment variables.",
+		Attributes: map[string]schema.Attribute{
+			"base_url": schema.StringAttribute{
+				Optional:    true,
+				Description: "Sedai API base URL. Can also be set via the `SEDAI_BASE_URL` environment variable.",
+			},
+			"api_token": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Sedai API token. Can also be set via the `SEDAI_API_TOKEN` environment variable.",
+			},
+		},
+	}
 }
 
 // Configure prepares a HashiCups API client for data sources and resources.
