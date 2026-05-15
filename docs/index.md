@@ -69,6 +69,7 @@ provider "sedai" {}
 
 See the resource pages for prerequisites, examples, and full attribute references:
 
+- **All clouds** — [`sedai_create_account`](resources/create_account)
 - **AWS** — [`sedai_create_cloudwatch_monitoring_provider`](resources/create_cloudwatch_monitoring_provider)
 - **Azure** — [`sedai_create_azure_monitoring_provider`](resources/create_azure_monitoring_provider)
 - **GCP** — [`sedai_create_gke_monitoring_provider`](resources/create_gke_monitoring_provider)
