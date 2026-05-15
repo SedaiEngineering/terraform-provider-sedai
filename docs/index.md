@@ -25,7 +25,7 @@ The Sedai provider manages Sedai accounts and monitoring providers. Authenticati
 terraform {
   required_providers {
     sedai = {
-      source  = "hashicorp.com/io/sedai"
+      source  = "SedaiEngineering/sedai"
       version = "~> 1.1"
     }
   }
