@@ -68,6 +68,7 @@ func (p *sedaiProvider) DataSources(_ context.Context) []func() datasource.DataS
 func (p *sedaiProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		CreateAccount,
+		CreateGroup,
 		CreateGKEMonitoringProvider,
 		CreateFPMonitoringProvider,
 		CreateDatadogMonitoringProvider,
