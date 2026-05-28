@@ -400,3 +400,4 @@ func createAccountRequest(plan accountModel) account.CreateAccountRequest {
 
 	return createAccountRequest
 }
+

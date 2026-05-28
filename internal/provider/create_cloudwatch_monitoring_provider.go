@@ -8,6 +8,7 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -67,6 +68,7 @@ func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resourc
 			"use_account_credentials": schema.BoolAttribute{
 				Computed:    true,
 				Optional:    true,
+				Default:     booldefault.StaticBool(true),
 				Description: "Use the AWS credentials from the account. Defaults to true. Set to false to provide an explicit role or access key.",
 			},
 			"access_key": schema.StringAttribute{

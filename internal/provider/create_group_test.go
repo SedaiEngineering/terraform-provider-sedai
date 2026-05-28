@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"sort"
 	"testing"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
@@ -25,31 +24,23 @@ func newStringList(t *testing.T, values []string) basetypes.ListValue {
 	return lv
 }
 
-// newTagsMap is a test helper that builds a non-null MapValue<List<String>>.
-func newTagsMap(t *testing.T, raw map[string][]string) basetypes.MapValue {
-	t.Helper()
-	mv, diags := basetypes.NewMapValueFrom(context.Background(), types.ListType{ElemType: types.StringType}, raw)
-	if diags.HasError() {
-		t.Fatalf("newTagsMap: %v", diags)
-	}
-	return mv
-}
-
-// TestBuildGroupDefinition_TagAutoSplit verifies the core auto-split rule:
-// tag values containing '*' go to regex[], all others to exact[].
-func TestBuildGroupDefinition_TagAutoSplit(t *testing.T) {
+// TestBuildGroupDefinition_TagsExplicitBuckets verifies that tag blocks pass
+// through verbatim — exact values go to exact, regex values go to regex, the
+// user gets full control with no auto-routing.
+func TestBuildGroupDefinition_TagsExplicitBuckets(t *testing.T) {
 	plan := groupModel{
-		Name: "g",
-		Tags: newTagsMap(t, map[string][]string{
-			"app": {"db-backend", "api-*", "frontend"},
-			"env": {"prod"},
-		}),
-		Cluster:                basetypes.NewListNull(types.StringType),
-		Cloud:                  basetypes.NewListNull(types.StringType),
-		ResourceType:           basetypes.NewListNull(types.StringType),
-		ManuallyAddedResources: basetypes.NewListNull(types.StringType),
-		Region:                 basetypes.NewListNull(types.StringType),
-		Namespace:              basetypes.NewListNull(types.StringType),
+		Name: basetypes.NewStringValue("g"),
+		Tags: []tagBlockModel{
+			{Key: "env", Exact: []string{"prod", "production"}, Regex: nil},
+			{Key: "team", Exact: nil, Regex: []string{"platform-*"}},
+			{Key: "app", Exact: []string{"db"}, Regex: []string{"api-*"}},
+		},
+		Clusters:        basetypes.NewListNull(types.StringType),
+		CloudAccountIDs: basetypes.NewListNull(types.StringType),
+		ResourceTypes:   basetypes.NewListNull(types.StringType),
+		ResourceIDs:     basetypes.NewListNull(types.StringType),
+		Regions:         basetypes.NewListNull(types.StringType),
+		Namespaces:      basetypes.NewListNull(types.StringType),
 	}
 
 	def, diags := buildGroupDefinition(context.Background(), plan)
@@ -57,36 +48,36 @@ func TestBuildGroupDefinition_TagAutoSplit(t *testing.T) {
 		t.Fatalf("buildGroupDefinition: %v", diags)
 	}
 
-	// Find each tag by key (order of map iteration is not deterministic).
 	tagByKey := map[string]groups.GroupTag{}
 	for _, tag := range def.Tags {
 		tagByKey[tag.Key] = tag
 	}
-	if len(tagByKey) != 2 {
-		t.Fatalf("want 2 tag keys, got %d (%v)", len(tagByKey), def.Tags)
+	if len(tagByKey) != 3 {
+		t.Fatalf("want 3 tag keys, got %d (%v)", len(tagByKey), def.Tags)
 	}
 
-	appTag, ok := tagByKey["app"]
-	if !ok {
-		t.Fatal("missing 'app' tag")
+	env := tagByKey["env"]
+	if len(env.Exact) != 2 || env.Exact[0] != "prod" || env.Exact[1] != "production" {
+		t.Errorf("env.exact: want [prod production], got %v", env.Exact)
 	}
-	sort.Strings(appTag.Exact)
-	if len(appTag.Exact) != 2 || appTag.Exact[0] != "db-backend" || appTag.Exact[1] != "frontend" {
-		t.Errorf("app.exact: want [db-backend frontend], got %v", appTag.Exact)
-	}
-	if len(appTag.Regex) != 1 || appTag.Regex[0] != "api-*" {
-		t.Errorf("app.regex: want [api-*], got %v", appTag.Regex)
+	if len(env.Regex) != 0 {
+		t.Errorf("env.regex: want [] (nil normalized), got %v", env.Regex)
 	}
 
-	envTag, ok := tagByKey["env"]
-	if !ok {
-		t.Fatal("missing 'env' tag")
+	team := tagByKey["team"]
+	if len(team.Exact) != 0 {
+		t.Errorf("team.exact: want [], got %v", team.Exact)
 	}
-	if len(envTag.Exact) != 1 || envTag.Exact[0] != "prod" {
-		t.Errorf("env.exact: want [prod], got %v", envTag.Exact)
+	if len(team.Regex) != 1 || team.Regex[0] != "platform-*" {
+		t.Errorf("team.regex: want [platform-*], got %v", team.Regex)
 	}
-	if len(envTag.Regex) != 0 {
-		t.Errorf("env.regex: want empty, got %v", envTag.Regex)
+
+	app := tagByKey["app"]
+	if len(app.Exact) != 1 || app.Exact[0] != "db" {
+		t.Errorf("app.exact: want [db], got %v", app.Exact)
+	}
+	if len(app.Regex) != 1 || app.Regex[0] != "api-*" {
+		t.Errorf("app.regex: want [api-*], got %v", app.Regex)
 	}
 }
 
@@ -96,14 +87,14 @@ func TestBuildGroupDefinition_TagAutoSplit(t *testing.T) {
 func TestBuildGroupDefinition_ParentGroupId(t *testing.T) {
 	base := func() groupModel {
 		return groupModel{
-			Name:                   "g",
-			Tags:                   basetypes.NewMapNull(types.ListType{ElemType: types.StringType}),
-			Cluster:                basetypes.NewListNull(types.StringType),
-			Cloud:                  basetypes.NewListNull(types.StringType),
-			ResourceType:           basetypes.NewListNull(types.StringType),
-			ManuallyAddedResources: basetypes.NewListNull(types.StringType),
-			Region:                 basetypes.NewListNull(types.StringType),
-			Namespace:              basetypes.NewListNull(types.StringType),
+			Name:            basetypes.NewStringValue("g"),
+			Tags:            nil,
+			Clusters:        basetypes.NewListNull(types.StringType),
+			CloudAccountIDs: basetypes.NewListNull(types.StringType),
+			ResourceTypes:   basetypes.NewListNull(types.StringType),
+			ResourceIDs:     basetypes.NewListNull(types.StringType),
+			Regions:         basetypes.NewListNull(types.StringType),
+			Namespaces:      basetypes.NewListNull(types.StringType),
 		}
 	}
 
@@ -136,14 +127,14 @@ func TestBuildGroupDefinition_ParentGroupId(t *testing.T) {
 // translated to plain []string, including the null-list case.
 func TestBuildGroupDefinition_ListFields(t *testing.T) {
 	plan := groupModel{
-		Name:                   "g",
-		Tags:                   basetypes.NewMapNull(types.ListType{ElemType: types.StringType}),
-		Cluster:                newStringList(t, []string{"c1", "c2"}),
-		Cloud:                  newStringList(t, []string{}),
-		ResourceType:           newStringList(t, []string{"AWS_EC2"}),
-		ManuallyAddedResources: basetypes.NewListNull(types.StringType),
-		Region:                 newStringList(t, []string{"us-east-1"}),
-		Namespace:              basetypes.NewListNull(types.StringType),
+		Name:            basetypes.NewStringValue("g"),
+		Tags:            nil,
+		Clusters:        newStringList(t, []string{"c1", "c2"}),
+		CloudAccountIDs: newStringList(t, []string{}),
+		ResourceTypes:   newStringList(t, []string{"AWS_EC2"}),
+		ResourceIDs:     basetypes.NewListNull(types.StringType),
+		Regions:         newStringList(t, []string{"us-east-1"}),
+		Namespaces:      basetypes.NewListNull(types.StringType),
 	}
 
 	def, diags := buildGroupDefinition(context.Background(), plan)
@@ -161,13 +152,13 @@ func TestBuildGroupDefinition_ListFields(t *testing.T) {
 		t.Errorf("ResourceType: got %v", def.ResourceType)
 	}
 	if def.ManuallyAddedResources == nil {
-		t.Error("ManuallyAddedResources: want empty non-nil for JSON shape")
+		t.Error("ResourceIDs:     want empty non-nil for JSON shape")
 	}
 }
 
-// TestApplyDefinitionToModel_TagMerge verifies regex+exact buckets are merged
-// back into a single list per key on the round-trip from backend to TF state.
-func TestApplyDefinitionToModel_TagMerge(t *testing.T) {
+// TestApplyDefinitionToModel_TagsRoundTrip verifies tag blocks round-trip
+// from backend to TF state preserving the exact/regex split.
+func TestApplyDefinitionToModel_TagsRoundTrip(t *testing.T) {
 	state := &groupModel{}
 	fetched := &groups.GroupDetails{
 		GroupId: "id-1",
@@ -186,23 +177,34 @@ func TestApplyDefinitionToModel_TagMerge(t *testing.T) {
 		t.Fatalf("diags: %v", diags)
 	}
 
-	var got map[string][]string
-	d := state.Tags.ElementsAs(context.Background(), &got, false)
-	if d.HasError() {
-		t.Fatalf("ElementsAs: %v", d)
+	if len(state.Tags) != 2 {
+		t.Fatalf("want 2 tag blocks, got %d (%v)", len(state.Tags), state.Tags)
+	}
+	byKey := map[string]tagBlockModel{}
+	for _, tb := range state.Tags {
+		byKey[tb.Key] = tb
 	}
 
-	if len(got["app"]) != 2 {
-		t.Errorf("app: want 2 entries, got %v", got["app"])
+	app := byKey["app"]
+	if len(app.Exact) != 1 || app.Exact[0] != "db-backend" {
+		t.Errorf("app.Exact: got %v", app.Exact)
 	}
-	if len(got["env"]) != 1 || got["env"][0] != "prod" {
-		t.Errorf("env: want [prod], got %v", got["env"])
+	if len(app.Regex) != 1 || app.Regex[0] != "api-*" {
+		t.Errorf("app.Regex: got %v", app.Regex)
+	}
+
+	env := byKey["env"]
+	if len(env.Exact) != 1 || env.Exact[0] != "prod" {
+		t.Errorf("env.Exact: got %v", env.Exact)
+	}
+	if len(env.Regex) != 0 {
+		t.Errorf("env.Regex: got %v", env.Regex)
 	}
 }
 
 // TestApplyDefinitionToModel_NoTags verifies that an empty Tags slice in the
-// definition produces a typed null map (not an empty map) — this prevents
-// Terraform from diffing `null` vs `{}` on refresh.
+// definition results in nil state.Tags (not an empty slice) — keeps the plan
+// output free of phantom block churn.
 func TestApplyDefinitionToModel_NoTags(t *testing.T) {
 	state := &groupModel{}
 	fetched := &groups.GroupDetails{
@@ -213,8 +215,8 @@ func TestApplyDefinitionToModel_NoTags(t *testing.T) {
 	if diags.HasError() {
 		t.Fatalf("diags: %v", diags)
 	}
-	if !state.Tags.IsNull() {
-		t.Errorf("expected null tags map, got %v", state.Tags)
+	if state.Tags != nil {
+		t.Errorf("expected nil tags slice, got %v", state.Tags)
 	}
 }
 
@@ -328,24 +330,17 @@ func TestStringsToList_Empty(t *testing.T) {
 	}
 }
 
-// TestSettingsFromPlan_NilGivesNil ensures that passing a nil settings
-// model doesn't panic and yields nil — the path Create/Update takes when
-// the user omits the settings block from HCL.
-func TestSettingsFromPlan_NilGivesNil(t *testing.T) {
-	if got := settingsFromPlan(nil); got != nil {
-		t.Errorf("nil input: want nil, got %v", got)
-	}
-}
-
-// TestSettingsFromPlan_PopulatesFields verifies the mapping from the
-// tfsdk model to the SDK request struct.
-func TestSettingsFromPlan_PopulatesFields(t *testing.T) {
-	plan := &groupSettingsModel{
+// TestGroupSettingsRequestFromPlan verifies the standalone
+// sedai_group_settings resource correctly maps its tfsdk model into the
+// SDK's GroupSettings struct.
+func TestGroupSettingsRequestFromPlan(t *testing.T) {
+	plan := groupSettingsResourceModel{
+		GroupID:          basetypes.NewStringValue("grp-1"),
 		AvailabilityMode: basetypes.NewStringValue("AUTO"),
 		OptimizationMode: basetypes.NewStringValue("CO_PILOT"),
 		SedaiSyncEnabled: basetypes.NewBoolValue(true),
 	}
-	got := settingsFromPlan(plan)
+	got := groupSettingsRequestFromPlan(plan)
 	if got == nil {
 		t.Fatal("got nil settings from non-nil plan")
 	}
@@ -357,37 +352,6 @@ func TestSettingsFromPlan_PopulatesFields(t *testing.T) {
 	}
 	if !got.SedaiSyncEnabled {
 		t.Errorf("SedaiSyncEnabled: got %v", got.SedaiSyncEnabled)
-	}
-}
-
-// TestSettingsEqual covers all 4 quadrants of nil-handling plus a real
-// diff and an exact match. This drives the Update flow's
-// "skip the API call if nothing changed" optimization.
-func TestSettingsEqual(t *testing.T) {
-	mk := func(av, opt string, sync bool) *groupSettingsModel {
-		return &groupSettingsModel{
-			AvailabilityMode: basetypes.NewStringValue(av),
-			OptimizationMode: basetypes.NewStringValue(opt),
-			SedaiSyncEnabled: basetypes.NewBoolValue(sync),
-		}
-	}
-	cases := []struct {
-		name string
-		a, b *groupSettingsModel
-		want bool
-	}{
-		{"both nil", nil, nil, true},
-		{"a nil, b set", nil, mk("AUTO", "AUTO", false), false},
-		{"a set, b nil", mk("AUTO", "AUTO", false), nil, false},
-		{"exact match", mk("AUTO", "CO_PILOT", true), mk("AUTO", "CO_PILOT", true), true},
-		{"different availability", mk("AUTO", "AUTO", false), mk("CO_PILOT", "AUTO", false), false},
-		{"different optimization", mk("AUTO", "AUTO", false), mk("AUTO", "CO_PILOT", false), false},
-		{"different sync", mk("AUTO", "AUTO", false), mk("AUTO", "AUTO", true), false},
-	}
-	for _, c := range cases {
-		if got := settingsEqual(c.a, c.b); got != c.want {
-			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
-		}
 	}
 }
 
