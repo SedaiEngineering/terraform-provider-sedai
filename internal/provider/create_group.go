@@ -117,7 +117,7 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			"resource_types": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				Description: "Resource type filters. Valid values: `AWS_LAMBDA`, `AWS_EC2`, `AWS_ECS`, `AWS_EBS`, `AWS_S3`, `AWS_TAGS`, `AZURE_LB`, `AZURE_VM`, `KUBERNETES_DEPLOYMENT`, `KUBERNETES_STATEFULSET`, `KUBERNETES_DAEMONSET`, `KUBERNETES_CRONJOB`.",
+				Description: "Resource type filters. Valid values: `AWS_LAMBDA`, `AWS_EC2`, `AWS_ECS`, `AWS_EBS`, `AWS_S3`, `AWS_TAGS`, `AZURE_LB`, `AZURE_VM`, `GCP_VM_INSTANCE`, `GCP_DISK`, `GCP_SNAPSHOT`, `GCP_LB`, `GCP_BUCKET`, `GCP_TAGS`, `GCP_BACKEND_SERVICE`, `GCP_DATAFLOW_STREAMING_JOB`, `GCP_DATAFLOW_BATCH_JOB`, `GCP_BIGQUERY_TRANSFER_CONFIG`, `GCP_BIGQUERY_RESERVATION`, `GCP_BIGQUERY_ASSIGNMENT`, `KUBERNETES_DEPLOYMENT`, `KUBERNETES_STATEFULSET`, `KUBERNETES_DAEMONSET`, `KUBERNETES_CRONJOB`.",
 				Validators:  []validator.List{groupResourceTypeListValidator()},
 			},
 			"resource_ids": schema.ListAttribute{
