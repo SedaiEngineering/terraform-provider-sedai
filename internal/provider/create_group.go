@@ -98,6 +98,8 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			},
 			"auto_refresh": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When true, Sedai periodically re-evaluates the group's filters and adds/removes resources as the cloud inventory changes. Defaults to `false`.",
 			},
 			"parent_group_id": schema.StringAttribute{
