@@ -6,12 +6,14 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createBigQueryMonitoringProvider{}
+	_ resource.Resource            = &createBigQueryMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createBigQueryMonitoringProvider{}
 )
 
 func CreateBigQueryMonitoringProvider() resource.Resource {
@@ -146,6 +148,10 @@ func (r *createBigQueryMonitoringProvider) Delete(ctx context.Context, req resou
 		resp.Diagnostics.AddError("Unable to delete BigQuery monitoring provider", err.Error())
 		return
 	}
+}
+
+func (r *createBigQueryMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func buildBigQueryRequest(plan bigQueryMonitoringProviderModel) monitoringProvider.CreateBigQueryMonitoringProviderRequest {

@@ -6,13 +6,15 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createAzureMonitoringProvider{}
+	_ resource.Resource            = &createAzureMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createAzureMonitoringProvider{}
 )
 
 func CreateAzureMonitoringProvider() resource.Resource {
@@ -200,6 +202,10 @@ func (r *createAzureMonitoringProvider) Delete(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Unable to delete Azure monitoring provider", err.Error())
 		return
 	}
+}
+
+func (r *createAzureMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func buildAzureMonitoringRequest(plan azureMonitoringProviderModel) monitoringProvider.CreateAzureMonitoringProviderRequest {

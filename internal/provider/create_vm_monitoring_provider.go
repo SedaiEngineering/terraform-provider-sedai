@@ -6,13 +6,15 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createVmMonitoringProvider{}
+	_ resource.Resource            = &createVmMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createVmMonitoringProvider{}
 )
 
 func CreateVMMonitoringProvider() resource.Resource {
@@ -257,6 +259,10 @@ func (r *createVmMonitoringProvider) Update(ctx context.Context, req resource.Up
 		return
 	}
 
+}
+
+func (r *createVmMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 // Delete deletes the resource and removes the Terraform state.

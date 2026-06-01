@@ -7,6 +7,7 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -14,7 +15,8 @@ import (
 )
 
 var (
-	_ resource.Resource = &createCloudWatchMonitoringProvider{}
+	_ resource.Resource            = &createCloudWatchMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createCloudWatchMonitoringProvider{}
 )
 
 func CreateCloudWatchMonitoringProvider() resource.Resource {
@@ -220,6 +222,10 @@ func (r *createCloudWatchMonitoringProvider) Delete(ctx context.Context, req res
 		resp.Diagnostics.AddError("Unable to delete CloudWatch monitoring provider", err.Error())
 		return
 	}
+}
+
+func (r *createCloudWatchMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func buildCloudWatchRequest(plan cloudWatchMonitoringProviderModel) monitoringProvider.CreateCloudWatchMonitoringProviderRequest {
