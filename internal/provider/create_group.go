@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -56,6 +57,9 @@ type groupModel struct {
 	AzureVMCount   basetypes.Int64Value `tfsdk:"azure_vm_count"`
 	AzureLBCount   basetypes.Int64Value `tfsdk:"azure_lb_count"`
 	StreamingCount basetypes.Int64Value `tfsdk:"streaming_count"`
+	// ResourceCounts is the full dynamic per-type tally (superset of the
+	// named *_count fields above). Keyed by backend resource type.
+	ResourceCounts basetypes.MapValue `tfsdk:"resource_counts"`
 }
 
 // tagBlockModel is one entry of a repeatable `tags { ... }` block. Matches
@@ -150,6 +154,11 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			"azure_vm_count":  schema.Int64Attribute{Computed: true, Description: "Number of Azure VMs matched."},
 			"azure_lb_count":  schema.Int64Attribute{Computed: true, Description: "Number of Azure load balancers matched."},
 			"streaming_count": schema.Int64Attribute{Computed: true, Description: "Number of streaming resources matched."},
+			"resource_counts": schema.MapAttribute{
+				Computed:    true,
+				ElementType: types.Int64Type,
+				Description: "All matched-resource counts keyed by backend resource type (e.g. `AWS_EC2`, `AZURE_VM`, `GCP_VM_INSTANCE`, `KUBERNETES`). Superset of the named `*_count` attributes — includes types those don't cover. Only types with at least one matched resource appear.",
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"tags": schema.ListNestedBlock{
@@ -382,7 +391,7 @@ func applyDefinitionToModel(ctx context.Context, state *groupModel, fetched *gro
 	state.Regions = stringsToList(def.Region)
 	state.Namespaces = stringsToList(def.Namespace)
 
-	populateCounts(state, fetched.Counts)
+	populateCounts(state, fetched)
 
 	if len(def.Tags) == 0 {
 		state.Tags = nil
@@ -417,11 +426,12 @@ func listToStrings(lv basetypes.ListValue) []string {
 }
 
 
-// populateCounts writes the nine count fields onto a groupModel from a
-// groups.GroupCounts. Called from Read (via applyDefinitionToModel) and
-// from Create / Update directly so Computed attributes never stay unknown
-// past an apply.
-func populateCounts(state *groupModel, c groups.GroupCounts) {
+// populateCounts writes the nine named count fields AND the full dynamic
+// resource_counts map onto a groupModel from a groups.GroupDetails. Called
+// from Read (via applyDefinitionToModel) and from Create / Update directly so
+// Computed attributes never stay unknown past an apply.
+func populateCounts(state *groupModel, d *groups.GroupDetails) {
+	c := d.Counts
 	state.LambdaCount = basetypes.NewInt64Value(c.LambdaCount)
 	state.EC2Count = basetypes.NewInt64Value(c.EC2Count)
 	state.ECSCount = basetypes.NewInt64Value(c.ECSCount)
@@ -431,6 +441,15 @@ func populateCounts(state *groupModel, c groups.GroupCounts) {
 	state.AzureVMCount = basetypes.NewInt64Value(c.AzureVMCount)
 	state.AzureLBCount = basetypes.NewInt64Value(c.AzureLBCount)
 	state.StreamingCount = basetypes.NewInt64Value(c.StreamingCount)
+
+	// Full dynamic map. Elements are all Int64 so NewMapValue cannot error
+	// here; the diags are discarded safely.
+	elems := make(map[string]attr.Value, len(d.ResourceCounts))
+	for k, v := range d.ResourceCounts {
+		elems[k] = basetypes.NewInt64Value(v)
+	}
+	m, _ := basetypes.NewMapValue(basetypes.Int64Type{}, elems)
+	state.ResourceCounts = m
 }
 
 // refreshCountsFromBackend fetches the group's current counts and writes
@@ -441,10 +460,10 @@ func populateCounts(state *groupModel, c groups.GroupCounts) {
 func refreshCountsFromBackend(state *groupModel, groupID string) {
 	details, err := groups.GetGroupById(groupID)
 	if err != nil || details == nil {
-		populateCounts(state, groups.GroupCounts{})
+		populateCounts(state, &groups.GroupDetails{})
 		return
 	}
-	populateCounts(state, details.Counts)
+	populateCounts(state, details)
 }
 
 // normalizeResourceTypes maps the user-facing (correct) spelling of

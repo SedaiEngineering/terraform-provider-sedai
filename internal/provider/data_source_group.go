@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -52,6 +53,7 @@ type dataSourceGroupModel struct {
 	AzureVMCount   basetypes.Int64Value `tfsdk:"azure_vm_count"`
 	AzureLBCount   basetypes.Int64Value `tfsdk:"azure_lb_count"`
 	StreamingCount basetypes.Int64Value `tfsdk:"streaming_count"`
+	ResourceCounts basetypes.MapValue   `tfsdk:"resource_counts"`
 }
 
 func (d *dataSourceGroup) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -121,6 +123,11 @@ func (d *dataSourceGroup) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			"azure_vm_count":  schema.Int64Attribute{Computed: true, Description: "Number of Azure VMs matched."},
 			"azure_lb_count":  schema.Int64Attribute{Computed: true, Description: "Number of Azure load balancers matched."},
 			"streaming_count": schema.Int64Attribute{Computed: true, Description: "Number of streaming resources matched."},
+			"resource_counts": schema.MapAttribute{
+				Computed:    true,
+				ElementType: types.Int64Type,
+				Description: "All matched-resource counts keyed by backend resource type (e.g. `AWS_EC2`, `AZURE_VM`, `GCP_VM_INSTANCE`, `KUBERNETES`). Superset of the named `*_count` attributes.",
+			},
 		},
 	}
 }
@@ -199,6 +206,14 @@ func (d *dataSourceGroup) Read(ctx context.Context, req datasource.ReadRequest, 
 	config.AzureVMCount = basetypes.NewInt64Value(c.AzureVMCount)
 	config.AzureLBCount = basetypes.NewInt64Value(c.AzureLBCount)
 	config.StreamingCount = basetypes.NewInt64Value(c.StreamingCount)
+
+	// Full dynamic map. Int64 elements → NewMapValue cannot error here.
+	elems := make(map[string]attr.Value, len(details.ResourceCounts))
+	for k, v := range details.ResourceCounts {
+		elems[k] = basetypes.NewInt64Value(v)
+	}
+	m, _ := basetypes.NewMapValue(basetypes.Int64Type{}, elems)
+	config.ResourceCounts = m
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, config)...)
 }
