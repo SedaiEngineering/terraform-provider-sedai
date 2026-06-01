@@ -30,7 +30,7 @@ Creates a Sedai resource group. A group bundles cloud resources matching the fil
 - `parent_group_id` (String) Parent group ID. Set this to create a subgroup; omit for a top-level group.
 - `regions` (List of String) Cloud region filters (e.g. `us-east-1`).
 - `resource_ids` (List of String) Specific resource IDs to include in the group regardless of filter matches.
-- `resource_types` (List of String) Resource type filters. Valid values: `AWS_LAMBDA`, `AWS_EC2`, `AWS_ECS`, `AWS_EBS`, `AWS_S3`, `AWS_TAGS`, `AZURE_LB`, `AZURE_VM`, `KUBERNETES_DEPLOYMENT`, `KUBERNETES_STATEFULSET`, `KUBERNETES_DAEMONSET`, `KUBERNETES_CRONJOB`.
+- `resource_types` (List of String) Resource type filters. Valid values: `AWS_LAMBDA`, `AWS_EC2`, `AWS_ECS`, `AWS_EBS`, `AWS_S3`, `AWS_TAGS`, `AZURE_LB`, `AZURE_VM`, `GCP_VM_INSTANCE`, `GCP_DISK`, `GCP_SNAPSHOT`, `GCP_LB`, `GCP_BUCKET`, `GCP_TAGS`, `GCP_BACKEND_SERVICE`, `GCP_DATAFLOW_STREAMING_JOB`, `GCP_DATAFLOW_BATCH_JOB`, `GCP_BIGQUERY_TRANSFER_CONFIG`, `GCP_BIGQUERY_RESERVATION`, `GCP_BIGQUERY_ASSIGNMENT`, `KUBERNETES_DEPLOYMENT`, `KUBERNETES_STATEFULSET`, `KUBERNETES_DAEMONSET`, `KUBERNETES_CRONJOB`.
 - `tags` (Block List) Repeatable tag filter. Each block names a single tag key and lists exact-match values, regex-match values, or both. A resource is included if any tag block matches. (see [below for nested schema](#nestedblock--tags))
 
 ### Read-Only
@@ -42,6 +42,7 @@ Creates a Sedai resource group. A group bundles cloud resources matching the fil
 - `ecs_count` (Number) Number of AWS ECS services matched.
 - `kube_count` (Number) Number of Kubernetes workloads matched.
 - `lambda_count` (Number) Number of AWS Lambda functions matched.
+- `resource_counts` (Map of Number) All matched-resource counts keyed by backend resource type (e.g. `AWS_EC2`, `AZURE_VM`, `GCP_VM_INSTANCE`, `KUBERNETES`). Superset of the named `*_count` attributes — includes types those don't cover. Only types with at least one matched resource appear.
 - `s3_count` (Number) Number of AWS S3 buckets matched.
 - `streaming_count` (Number) Number of streaming resources matched.
 

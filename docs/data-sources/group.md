@@ -36,6 +36,7 @@ Look up an existing Sedai group by name. Returns the group's ID, definition, and
 - `namespaces` (List of String) Kubernetes namespace filters.
 - `parent_group_id` (String) Parent group ID, if this group is a subgroup. Empty / null otherwise.
 - `regions` (List of String) Cloud region filters.
+- `resource_counts` (Map of Number) All matched-resource counts keyed by backend resource type (e.g. `AWS_EC2`, `AZURE_VM`, `GCP_VM_INSTANCE`, `KUBERNETES`). Superset of the named `*_count` attributes.
 - `resource_ids` (List of String) Manually added resource IDs.
 - `resource_types` (List of String) Resource type filters.
 - `s3_count` (Number) Number of AWS S3 buckets matched.
