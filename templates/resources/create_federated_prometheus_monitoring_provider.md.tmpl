@@ -1,0 +1,41 @@
+---
+page_title: "sedai_create_federated_prometheus_monitoring_provider Resource - terraform-provider-sedai"
+subcategory: ""
+description: |-
+
+---
+
+# sedai_create_federated_prometheus_monitoring_provider (Resource)
+
+
+
+## Example Usage
+
+```terraform
+# Federated Prometheus — JWT bearer token
+resource "sedai_create_federated_prometheus_monitoring_provider" "fp_jwt" {
+  account_id       = sedai_create_account.eks_account.id
+  integration_type = sedai_create_account.eks_account.integration_type
+  endpoint         = "https://prometheus.example.com"
+  bearer_token     = "bearer_token"
+}
+
+# Federated Prometheus — OAuth2 client credentials
+resource "sedai_create_federated_prometheus_monitoring_provider" "fp_client_creds" {
+  account_id       = sedai_create_account.eks_account.id
+  integration_type = sedai_create_account.eks_account.integration_type
+  endpoint         = "https://prometheus.example.com"
+  token_endpoint   = "https://auth.example.com/oauth/token"
+  client_id        = "client_id"
+  client_secret    = "client_secret"
+}
+
+# Federated Prometheus — no authentication
+resource "sedai_create_federated_prometheus_monitoring_provider" "fp_no_auth" {
+  account_id       = sedai_create_account.eks_account.id
+  integration_type = sedai_create_account.eks_account.integration_type
+  endpoint         = "https://prometheus.example.com"
+}
+```
+
+{{.SchemaMarkdown}}

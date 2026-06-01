@@ -45,7 +45,6 @@ resource "sedai_create_gke_monitoring_provider" "gcp" {
 
 - `account_id` (String) Sedai account ID to associate this monitoring provider with.
 - `project_id` (String) GCP project ID.
-- `service_account_json` (String, Sensitive) GCP service account JSON key with Monitoring Viewer permissions.
 
 ### Optional
 
@@ -59,3 +58,6 @@ resource "sedai_create_gke_monitoring_provider" "gcp" {
 - `name` (String) Monitoring provider name (populated by Sedai).
 - `namespace_dimensions` (List of String) Namespace dimension filters.
 - `region_dimensions` (List of String) Region dimension filters.
+- `service_account_json` (String, Sensitive) GCP service account JSON key with Monitoring Viewer permissions.
+
+

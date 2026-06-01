@@ -7,13 +7,15 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createNewrelicMonitoringProvider{}
+	_ resource.Resource            = &createNewrelicMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createNewrelicMonitoringProvider{}
 )
 
 func CreateNewrelicMonitoringProvider() resource.Resource {
@@ -245,6 +247,10 @@ func (r *createNewrelicMonitoringProvider) Delete(ctx context.Context, req resou
 	}
 
 	return
+}
+
+func (r *createNewrelicMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func createNewrelicMonitoringProviderRequest(plan newrelicMonitoringProviderModel) monitoringProvider.CreateNewRelicMonitoringProviderRequest {

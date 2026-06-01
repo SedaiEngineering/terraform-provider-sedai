@@ -1,0 +1,79 @@
+---
+page_title: "sedai Provider"
+description: |-
+  Use the Sedai provider to onboard cloud accounts and configure monitoring providers.
+---
+
+# Sedai Provider
+
+The Sedai provider allows you to onboard cloud accounts and configure monitoring providers using Terraform.
+
+## Concepts
+
+**Onboarding an account** — Connecting a cloud environment (AWS, Azure, GCP, or a Kubernetes cluster) to Sedai so it can begin monitoring and optimizing your resources. This is done with the `sedai_create_account` resource.
+
+**Monitoring provider** — The metrics source Sedai uses to collect data from your cloud. Each onboarded account needs one monitoring provider before Sedai can start collecting data.
+
+Typical workflow:
+1. Onboard an account (`sedai_create_account`).
+2. Add a monitoring provider for that account.
+
+---
+
+## Authentication
+
+The provider authenticates with Sedai using a base URL and an API token. These can be supplied as environment variables or via a `.env` file in the working directory.
+
+**Option 1 — Environment variables:**
+
+```bash
+export SEDAI_BASE_URL="https://<TENANT_NAME>.sedai.app"
+export SEDAI_API_TOKEN="your-api-token"
+```
+
+**Option 2 — `.env` file** (placed in the same directory as your Terraform config):
+
+```bash
+SEDAI_BASE_URL=https://<TENANT_NAME>.sedai.app
+SEDAI_API_TOKEN=your-api-token
+```
+
+The provider loads the `.env` file automatically — no `source` command needed.
+
+**Getting your API token:**
+Log in to the Sedai UI → **Settings** → **API Keys** → **Generate Key**.
+
+**Getting the base URL:**
+Your base URL follows the format `https://<TENANT_NAME>.sedai.app` where `<TENANT_NAME>` is your organisation's Sedai tenant name.
+
+---
+
+## Provider Configuration
+
+```terraform
+terraform {
+  required_providers {
+    sedai = {
+      source  = "SedaiEngineering/sedai"
+      version = "~> 1.0"
+    }
+  }
+}
+
+provider "sedai" {}
+```
+
+---
+
+## Getting Started
+
+See the resource pages for prerequisites, examples, and full attribute references:
+
+- **All clouds** — [`sedai_create_account`](resources/create_account)
+- **AWS** — [`sedai_create_cloudwatch_monitoring_provider`](resources/create_cloudwatch_monitoring_provider)
+- **Azure** — [`sedai_create_azure_monitoring_provider`](resources/create_azure_monitoring_provider)
+- **GCP** — [`sedai_create_gke_monitoring_provider`](resources/create_gke_monitoring_provider)
+
+---
+
+{{.SchemaMarkdown}}

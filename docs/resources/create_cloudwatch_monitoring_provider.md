@@ -68,3 +68,5 @@ resource "sedai_create_cloudwatch_monitoring_provider" "aws_explicit" {
 - `role` (String) IAM role ARN override for CloudWatch access.
 - `secret_key` (String, Sensitive) AWS secret key. Used when `use_account_credentials = false`.
 - `use_account_credentials` (Boolean) Use the AWS credentials from the account. Defaults to true. Set to false to provide an explicit role or access key.
+
+

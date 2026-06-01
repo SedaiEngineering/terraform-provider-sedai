@@ -7,13 +7,15 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createGkeMonitoringProvider{}
+	_ resource.Resource            = &createGkeMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createGkeMonitoringProvider{}
 )
 
 func CreateGKEMonitoringProvider() resource.Resource {
@@ -114,7 +116,7 @@ func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.Schem
 				Description: "Cluster dimension filters.",
 			},
 			"service_account_json": schema.StringAttribute{
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				Description: "GCP service account JSON key with Monitoring Viewer permissions.",
 			},
@@ -263,6 +265,10 @@ func (r *createGkeMonitoringProvider) Delete(ctx context.Context, req resource.D
 	}
 
 	return
+}
+
+func (r *createGkeMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func createGkeMonitoringProviderRequest(plan gkeMonitoringProviderModel) monitoringProvider.CreateGKEMonitoringProviderRequest {

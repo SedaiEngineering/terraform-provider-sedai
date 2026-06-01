@@ -7,13 +7,15 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createDatadogMonitoringProvider{}
+	_ resource.Resource            = &createDatadogMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createDatadogMonitoringProvider{}
 )
 
 func CreateDatadogMonitoringProvider() resource.Resource {
@@ -273,6 +275,10 @@ func (r *createDatadogMonitoringProvider) Delete(ctx context.Context, req resour
 	}
 
 	return
+}
+
+func (r *createDatadogMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func createDatadogMonitoringProviderRequest(plan datadogMonitoringProviderModel) monitoringProvider.CreateDatadogMonitoringProviderRequest {

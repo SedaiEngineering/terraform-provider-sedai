@@ -133,3 +133,5 @@ resource "sedai_create_account" "gke_account" {
 - `create_secret_kubectl_cmd` (String) kubectl command to create the agent secret. Populated only for `AGENT_BASED` integration.
 - `helm_install_cmd` (String) Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration.
 - `kube_install_cmd` (String) kubectl command to install the Sedai agent. Populated only for `AGENT_BASED` integration.
+
+

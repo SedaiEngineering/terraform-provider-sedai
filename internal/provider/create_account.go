@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -14,7 +15,8 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource = &createAccount{}
+	_ resource.Resource                = &createAccount{}
+	_ resource.ResourceWithImportState = &createAccount{}
 )
 
 // CreateAccount is a helper function to simplify the provider implementation.
@@ -27,9 +29,9 @@ type createAccount struct{}
 
 type accountModel struct {
 	ID                     basetypes.StringValue `tfsdk:"id"`
-	Name                   string                `tfsdk:"name"`
-	CloudProvider          string                `tfsdk:"cloud_provider"`
-	IntegrationType        string                `tfsdk:"integration_type"`
+	Name                   basetypes.StringValue `tfsdk:"name"`
+	CloudProvider          basetypes.StringValue `tfsdk:"cloud_provider"`
+	IntegrationType        basetypes.StringValue `tfsdk:"integration_type"`
 	Role                   basetypes.StringValue `tfsdk:"role"`
 	ExternalId             basetypes.StringValue `tfsdk:"external_id"`
 	AccessKey              basetypes.StringValue `tfsdk:"access_key"`
@@ -191,8 +193,8 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if plan.IntegrationType == "AGENT_BASED" {
-		agentInstallationCommand, err := account.GetAgentInstallationCommand(plan.Name)
+	if plan.IntegrationType.ValueString() == "AGENT_BASED" {
+		agentInstallationCommand, err := account.GetAgentInstallationCommand(plan.Name.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
 			return
@@ -241,9 +243,9 @@ func (r *createAccount) Read(ctx context.Context, req resource.ReadRequest, resp
 	}
 
 	state.ID = basetypes.NewStringValue(fetchedAccount.ID)
-	state.Name = fetchedAccount.Name
-	state.CloudProvider = fetchedAccount.AccountDetails.CloudProvider
-	state.IntegrationType = fetchedAccount.AccountDetails.IntegrationType
+	state.Name = basetypes.NewStringValue(fetchedAccount.Name)
+	state.CloudProvider = basetypes.NewStringValue(fetchedAccount.AccountDetails.CloudProvider)
+	state.IntegrationType = basetypes.NewStringValue(fetchedAccount.AccountDetails.IntegrationType)
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -271,8 +273,8 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	if plan.IntegrationType == "AGENT_BASED" {
-		agentInstallationCommand, err := account.GetAgentInstallationCommand(plan.Name)
+	if plan.IntegrationType.ValueString() == "AGENT_BASED" {
+		agentInstallationCommand, err := account.GetAgentInstallationCommand(plan.Name.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
 			return
@@ -311,19 +313,23 @@ func (r *createAccount) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	_, err := account.DeleteAccount(state.Name)
+	_, err := account.DeleteAccount(state.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to delete account", err.Error())
 		return
 	}
 }
 
+func (r *createAccount) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
 func createCredentials(plan accountModel) interface{} {
-	if plan.CloudProvider == "AZURE" {
+	if plan.CloudProvider.ValueString() == "AZURE" {
 		return credentials.NewAzureClientCredentials(plan.ClientId.ValueString(), plan.ClientSecret.ValueString())
 	}
 
-	if plan.CloudProvider == "GCP" {
+	if plan.CloudProvider.ValueString() == "GCP" {
 		return credentials.NewGCPServiceAccountJsonCredentials(plan.ServiceAccountJson.ValueString())
 	}
 
@@ -333,9 +339,9 @@ func createCredentials(plan accountModel) interface{} {
 	}
 
 	// Check if cloud provider is KUBERNETES and cluster provider is GCP
-	if plan.CloudProvider == "KUBERNETES" {
+	if plan.CloudProvider.ValueString() == "KUBERNETES" {
 		if plan.ClusterProvider.ValueString() == "AWS" {
-			if plan.IntegrationType == "AGENT_BASED" {
+			if plan.IntegrationType.ValueString() == "AGENT_BASED" {
 				return credentials.NewAwsCredentials()
 			} else {
 				if plan.Role.ValueString() != "" {
@@ -356,10 +362,10 @@ func createCredentials(plan accountModel) interface{} {
 func createAccountRequest(plan accountModel) account.CreateAccountRequest {
 	credential := createCredentials(plan)
 	createAccountRequest := account.CreateAccountRequest{
-		Name:            plan.Name,
-		CloudProvider:   plan.CloudProvider,
+		Name:            plan.Name.ValueString(),
+		CloudProvider:   plan.CloudProvider.ValueString(),
 		Credentials:     credential,
-		IntegrationType: plan.IntegrationType,
+		IntegrationType: plan.IntegrationType.ValueString(),
 	}
 
 	// in case of update
@@ -400,3 +406,4 @@ func createAccountRequest(plan accountModel) account.CreateAccountRequest {
 
 	return createAccountRequest
 }
+

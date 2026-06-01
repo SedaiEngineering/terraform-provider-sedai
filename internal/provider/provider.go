@@ -61,13 +61,22 @@ func (p *sedaiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 // DataSources defines the data sources implemented in the provider.
 func (p *sedaiProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		DataSourceGroup,
+		DataSourceGroups,
+		DataSourceAccount,
+	}
 }
 
 // Resources defines the resources implemented in the provider.
 func (p *sedaiProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		CreateAccount,
+		AccountSettings,
+		Group,
+		GroupSettings,
+		GroupPriority,
+		ResourceSettings,
 		CreateGKEMonitoringProvider,
 		CreateFPMonitoringProvider,
 		CreateDatadogMonitoringProvider,

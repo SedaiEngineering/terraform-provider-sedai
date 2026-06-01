@@ -7,13 +7,15 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
-	_ resource.Resource = &createFpMonitoringProvider{}
+	_ resource.Resource            = &createFpMonitoringProvider{}
+	_ resource.ResourceWithImportState = &createFpMonitoringProvider{}
 )
 
 func CreateFPMonitoringProvider() resource.Resource {
@@ -316,6 +318,10 @@ func (r *createFpMonitoringProvider) Delete(ctx context.Context, req resource.De
 	}
 
 	return
+}
+
+func (r *createFpMonitoringProvider) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func createFpCredentials(plan fpMonitoringProviderModel) interface{} {

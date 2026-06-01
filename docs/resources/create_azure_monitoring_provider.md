@@ -57,3 +57,5 @@ resource "sedai_create_azure_monitoring_provider" "azure" {
 - `name` (String) Monitoring provider name (populated by Sedai).
 - `namespace_dimensions` (List of String) Namespace dimension filters.
 - `region_dimensions` (List of String) Region dimension filters.
+
+

@@ -1,0 +1,12 @@
+---
+page_title: "sedai_group_settings Resource - terraform-provider-sedai"
+subcategory: ""
+description: |-
+  Manages the top-level settings for a Sedai group. The provider auto-initializes the group's settings on first apply, so the customer never has to call the init API directly. Only attributes specified in this resource are tracked for drift — unmanaged per-resource-type tuning (kube scaling, etc.) is preserved as-is.
+---
+
+# sedai_group_settings (Resource)
+
+Manages the top-level settings for a Sedai group. The provider auto-initializes the group's settings on first apply, so the customer never has to call the init API directly. Only attributes specified in this resource are tracked for drift — unmanaged per-resource-type tuning (kube scaling, etc.) is preserved as-is.
+
+{{.SchemaMarkdown}}
