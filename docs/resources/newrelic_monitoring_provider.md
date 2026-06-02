@@ -1,11 +1,11 @@
 ---
-page_title: "sedai_create_newrelic_monitoring_provider Resource - terraform-provider-sedai"
+page_title: "sedai_newrelic_monitoring_provider Resource - terraform-provider-sedai"
 subcategory: ""
 description: |-
 
 ---
 
-# sedai_create_newrelic_monitoring_provider (Resource)
+# sedai_newrelic_monitoring_provider (Resource)
 
 
 
@@ -13,9 +13,9 @@ description: |-
 
 ```terraform
 # New Relic monitoring provider
-resource "sedai_create_newrelic_monitoring_provider" "newrelic_mp" {
-  account_id          = sedai_create_account.eks_account.id
-  integration_type    = sedai_create_account.eks_account.integration_type
+resource "sedai_newrelic_monitoring_provider" "newrelic_mp" {
+  account_id          = sedai_account.eks_account.id
+  integration_type    = sedai_account.eks_account.integration_type
   api_key             = "api_key"
   api_server          = "https://api.newrelic.com"
   newrelic_account_id = "newrelic_account_id"

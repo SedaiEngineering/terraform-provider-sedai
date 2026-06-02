@@ -57,7 +57,7 @@ type accountModel struct {
 
 // Metadata returns the resource type name.
 func (r *createAccount) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_account"
+	resp.TypeName = req.ProviderTypeName + "_account"
 }
 
 // Schema defines the schema for the resource.

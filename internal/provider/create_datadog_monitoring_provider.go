@@ -45,7 +45,7 @@ type datadogMonitoringProviderModel struct {
 
 // Metadata returns the resource type name.
 func (r *createDatadogMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_datadog_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_datadog_monitoring_provider"
 }
 
 // Schema defines the schema for the resource.

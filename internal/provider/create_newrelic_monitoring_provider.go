@@ -42,7 +42,7 @@ type newrelicMonitoringProviderModel struct {
 
 // Metadata returns the resource type name.
 func (r *createNewrelicMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_newrelic_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_newrelic_monitoring_provider"
 }
 
 // Schema defines the schema for the resource.

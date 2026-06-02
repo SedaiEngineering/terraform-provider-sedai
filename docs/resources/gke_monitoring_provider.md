@@ -1,13 +1,13 @@
 ---
-page_title: "sedai_create_gke_monitoring_provider Resource - terraform-provider-sedai"
+page_title: "sedai_gke_monitoring_provider Resource - terraform-provider-sedai"
 subcategory: ""
 description: |-
   Configures GKE Monitoring as the metrics source for a GCP Sedai account.
 ---
 
-# sedai_create_gke_monitoring_provider (Resource)
+# sedai_gke_monitoring_provider (Resource)
 
-Configures Google Cloud Monitoring (GKE Monitoring) as the metrics source for a GCP account onboarded into Sedai. Must be created after the corresponding `sedai_create_account` resource.
+Configures Google Cloud Monitoring (GKE Monitoring) as the metrics source for a GCP account onboarded into Sedai. Must be created after the corresponding `sedai_account` resource.
 
 > **Note:** Sedai also auto-provisions a GKE monitoring provider when a GCP account is created. Use this resource only when you want Terraform to manage the monitoring provider explicitly in state.
 
@@ -19,7 +19,7 @@ Configures Google Cloud Monitoring (GKE Monitoring) as the metrics source for a 
 ## Example Usage
 
 ```terraform
-resource "sedai_create_account" "gcp" {
+resource "sedai_account" "gcp" {
   name                 = "my-gcp-account"
   cloud_provider       = "GCP"
   integration_type     = "AGENTLESS"
@@ -29,12 +29,12 @@ resource "sedai_create_account" "gcp" {
   # user_selected_managed_services = ["GCE", "DATAFLOW", "BIG_QUERY"]
 }
 
-resource "sedai_create_gke_monitoring_provider" "gcp" {
-  account_id           = sedai_create_account.gcp.id
+resource "sedai_gke_monitoring_provider" "gcp" {
+  account_id           = sedai_account.gcp.id
   service_account_json = file("service_account.json")
   project_id           = "my-gcp-project"
 
-  depends_on = [sedai_create_account.gcp]
+  depends_on = [sedai_account.gcp]
 }
 ```
 

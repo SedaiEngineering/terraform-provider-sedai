@@ -38,7 +38,7 @@ type azureMonitoringProviderModel struct {
 }
 
 func (r *createAzureMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_azure_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_azure_monitoring_provider"
 }
 
 func (r *createAzureMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

@@ -51,7 +51,7 @@ type fpMonitoringProviderModel struct {
 
 // Metadata returns the resource type name.
 func (r *createFpMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_federated_prometheus_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_federated_prometheus_monitoring_provider"
 }
 
 // Schema defines the schema for the resource.

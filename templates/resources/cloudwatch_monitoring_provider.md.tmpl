@@ -1,13 +1,13 @@
 ---
-page_title: "sedai_create_cloudwatch_monitoring_provider Resource - terraform-provider-sedai"
+page_title: "sedai_cloudwatch_monitoring_provider Resource - terraform-provider-sedai"
 subcategory: ""
 description: |-
   Configures CloudWatch as the metrics source for an AWS Sedai account.
 ---
 
-# sedai_create_cloudwatch_monitoring_provider (Resource)
+# sedai_cloudwatch_monitoring_provider (Resource)
 
-Configures Amazon CloudWatch as the metrics source for an AWS account onboarded into Sedai. Must be created after the corresponding `sedai_create_account` resource.
+Configures Amazon CloudWatch as the metrics source for an AWS account onboarded into Sedai. Must be created after the corresponding `sedai_account` resource.
 
 By default, the monitoring provider reuses the IAM credentials from the account (`use_account_credentials = true`). You can override this with a dedicated IAM role or access key scoped specifically for CloudWatch access.
 
@@ -20,7 +20,7 @@ By default, the monitoring provider reuses the IAM credentials from the account 
 
 ```terraform
 # Option 1 — IAM role on account, CloudWatch inherits it (recommended)
-resource "sedai_create_account" "aws" {
+resource "sedai_account" "aws" {
   name             = "my-aws-account"
   cloud_provider   = "AWS"
   integration_type = "AGENTLESS"
@@ -30,21 +30,21 @@ resource "sedai_create_account" "aws" {
   # user_selected_managed_services = ["EC2", "ECS", "LAMBDA", "RDS", "S3"]
 }
 
-resource "sedai_create_cloudwatch_monitoring_provider" "aws" {
-  account_id              = sedai_create_account.aws.id
+resource "sedai_cloudwatch_monitoring_provider" "aws" {
+  account_id              = sedai_account.aws.id
   use_account_credentials = true
 
-  depends_on = [sedai_create_account.aws]
+  depends_on = [sedai_account.aws]
 }
 
 # Option 2 — Separate IAM role scoped for CloudWatch only
-resource "sedai_create_cloudwatch_monitoring_provider" "aws_explicit" {
-  account_id              = sedai_create_account.aws.id
+resource "sedai_cloudwatch_monitoring_provider" "aws_explicit" {
+  account_id              = sedai_account.aws.id
   use_account_credentials = false
   role                    = "arn:aws:iam::123456789012:role/SedaiMonitoringRole"
   external_id             = "your-external-id"
 
-  depends_on = [sedai_create_account.aws]
+  depends_on = [sedai_account.aws]
 }
 ```
 

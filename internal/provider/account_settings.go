@@ -60,7 +60,7 @@ func (r *accountSettings) Schema(_ context.Context, _ resource.SchemaRequest, re
 		Attributes: map[string]schema.Attribute{
 			"account_id": schema.StringAttribute{
 				Required:    true,
-				Description: "The Sedai account ID to configure. Typically `sedai_create_account.<name>.id`.",
+				Description: "The Sedai account ID to configure. Typically `sedai_account.<name>.id`.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},

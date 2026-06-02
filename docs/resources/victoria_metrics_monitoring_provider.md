@@ -1,11 +1,11 @@
 ---
-page_title: "sedai_create_victoria_metrics_monitoring_provider Resource - terraform-provider-sedai"
+page_title: "sedai_victoria_metrics_monitoring_provider Resource - terraform-provider-sedai"
 subcategory: ""
 description: |-
 
 ---
 
-# sedai_create_victoria_metrics_monitoring_provider (Resource)
+# sedai_victoria_metrics_monitoring_provider (Resource)
 
 
 
