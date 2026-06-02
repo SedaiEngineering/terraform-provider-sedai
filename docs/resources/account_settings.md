@@ -14,7 +14,7 @@ Manages the top-level settings for a Sedai account. Applies as the baseline defa
 
 ### Required
 
-- `account_id` (String) The Sedai account ID to configure. Typically `sedai_create_account.<name>.id`.
+- `account_id` (String) The Sedai account ID to configure. Typically `sedai_account.<name>.id`.
 - `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 - `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 

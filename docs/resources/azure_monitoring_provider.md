@@ -1,13 +1,13 @@
 ---
-page_title: "sedai_create_azure_monitoring_provider Resource - terraform-provider-sedai"
+page_title: "sedai_azure_monitoring_provider Resource - terraform-provider-sedai"
 subcategory: ""
 description: |-
   Configures Azure Monitor as the metrics source for an Azure Sedai account.
 ---
 
-# sedai_create_azure_monitoring_provider (Resource)
+# sedai_azure_monitoring_provider (Resource)
 
-Configures Azure Monitor as the metrics source for an Azure account onboarded into Sedai. Must be created after the corresponding `sedai_create_account` resource.
+Configures Azure Monitor as the metrics source for an Azure account onboarded into Sedai. Must be created after the corresponding `sedai_account` resource.
 
 The monitoring provider automatically inherits the service principal credentials from the account — no additional credentials are required here.
 
@@ -19,7 +19,7 @@ The monitoring provider automatically inherits the service principal credentials
 ## Example Usage
 
 ```terraform
-resource "sedai_create_account" "azure" {
+resource "sedai_account" "azure" {
   name             = "my-azure-account"
   cloud_provider   = "AZURE"
   integration_type = "AGENTLESS"
@@ -31,10 +31,10 @@ resource "sedai_create_account" "azure" {
   # user_selected_managed_services = ["VM", "AZURE_DISK", "AZURE_BLOB"]
 }
 
-resource "sedai_create_azure_monitoring_provider" "azure" {
-  account_id = sedai_create_account.azure.id
+resource "sedai_azure_monitoring_provider" "azure" {
+  account_id = sedai_account.azure.id
 
-  depends_on = [sedai_create_account.azure]
+  depends_on = [sedai_account.azure]
 }
 ```
 

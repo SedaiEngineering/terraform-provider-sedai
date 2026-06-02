@@ -1,11 +1,11 @@
 ---
-page_title: "sedai_create_account Resource - terraform-provider-sedai"
+page_title: "sedai_account Resource - terraform-provider-sedai"
 subcategory: ""
 description: |-
   Onboards a cloud account (AWS, Azure, GCP, or Kubernetes) into Sedai.
 ---
 
-# sedai_create_account (Resource)
+# sedai_account (Resource)
 
 Onboards a cloud environment into Sedai. This connects Sedai to your cloud using the credentials you supply, enabling monitoring and autonomous optimization of your resources.
 
@@ -15,7 +15,7 @@ After creating an account, add a monitoring provider resource to tell Sedai wher
 
 ```terraform
 # AWS — role-based authentication
-resource "sedai_create_account" "aws_account" {
+resource "sedai_account" "aws_account" {
   name             = "my-aws-account"
   cloud_provider   = "AWS"
   integration_type = "AGENTLESS"
@@ -25,7 +25,7 @@ resource "sedai_create_account" "aws_account" {
 }
 
 # AWS — access key authentication
-resource "sedai_create_account" "aws_account_key" {
+resource "sedai_account" "aws_account_key" {
   name             = "my-aws-account-key"
   cloud_provider   = "AWS"
   integration_type = "AGENTLESS"
@@ -35,7 +35,7 @@ resource "sedai_create_account" "aws_account_key" {
 }
 
 # Azure
-resource "sedai_create_account" "azure_account" {
+resource "sedai_account" "azure_account" {
   name             = "my-azure-account"
   cloud_provider   = "AZURE"
   integration_type = "AGENTLESS"
@@ -47,7 +47,7 @@ resource "sedai_create_account" "azure_account" {
 }
 
 # GCP
-resource "sedai_create_account" "gcp_account" {
+resource "sedai_account" "gcp_account" {
   name                 = "my-gcp-account"
   cloud_provider       = "GCP"
   integration_type     = "AGENTLESS"
@@ -57,7 +57,7 @@ resource "sedai_create_account" "gcp_account" {
 }
 
 # Kubernetes (EKS) — agent-based
-resource "sedai_create_account" "eks_account" {
+resource "sedai_account" "eks_account" {
   name             = "my-eks-account"
   cloud_provider   = "KUBERNETES"
   integration_type = "AGENT_BASED"
@@ -65,7 +65,7 @@ resource "sedai_create_account" "eks_account" {
 }
 
 # Kubernetes (AKS) — agent-based
-resource "sedai_create_account" "aks_account_agent" {
+resource "sedai_account" "aks_account_agent" {
   name             = "my-aks-account"
   cloud_provider   = "KUBERNETES"
   integration_type = "AGENT_BASED"
@@ -73,7 +73,7 @@ resource "sedai_create_account" "aks_account_agent" {
 }
 
 # Kubernetes (AKS) — agentless
-resource "sedai_create_account" "aks_account_agentless" {
+resource "sedai_account" "aks_account_agentless" {
   name             = "my-aks-account-agentless"
   cloud_provider   = "KUBERNETES"
   integration_type = "AGENTLESS"
@@ -86,7 +86,7 @@ resource "sedai_create_account" "aks_account_agentless" {
 }
 
 # Kubernetes (GKE) — agentless
-resource "sedai_create_account" "gke_account" {
+resource "sedai_account" "gke_account" {
   name                 = "my-gke-account"
   cloud_provider       = "KUBERNETES"
   integration_type     = "AGENTLESS"

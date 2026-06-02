@@ -10,12 +10,12 @@ The Sedai provider allows you to onboard cloud accounts and configure monitoring
 
 ## Concepts
 
-**Onboarding an account** — Connecting a cloud environment (AWS, Azure, GCP, or a Kubernetes cluster) to Sedai so it can begin monitoring and optimizing your resources. This is done with the `sedai_create_account` resource.
+**Onboarding an account** — Connecting a cloud environment (AWS, Azure, GCP, or a Kubernetes cluster) to Sedai so it can begin monitoring and optimizing your resources. This is done with the `sedai_account` resource.
 
 **Monitoring provider** — The metrics source Sedai uses to collect data from your cloud. Each onboarded account needs one monitoring provider before Sedai can start collecting data.
 
 Typical workflow:
-1. Onboard an account (`sedai_create_account`).
+1. Onboard an account (`sedai_account`).
 2. Add a monitoring provider for that account.
 
 ---
@@ -69,10 +69,10 @@ provider "sedai" {}
 
 See the resource pages for prerequisites, examples, and full attribute references:
 
-- **All clouds** — [`sedai_create_account`](resources/create_account)
-- **AWS** — [`sedai_create_cloudwatch_monitoring_provider`](resources/create_cloudwatch_monitoring_provider)
-- **Azure** — [`sedai_create_azure_monitoring_provider`](resources/create_azure_monitoring_provider)
-- **GCP** — [`sedai_create_gke_monitoring_provider`](resources/create_gke_monitoring_provider)
+- **All clouds** — [`sedai_account`](resources/account)
+- **AWS** — [`sedai_cloudwatch_monitoring_provider`](resources/cloudwatch_monitoring_provider)
+- **Azure** — [`sedai_azure_monitoring_provider`](resources/azure_monitoring_provider)
+- **GCP** — [`sedai_gke_monitoring_provider`](resources/gke_monitoring_provider)
 
 ---
 
