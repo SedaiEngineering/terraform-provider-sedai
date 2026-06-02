@@ -31,7 +31,7 @@ type bigQueryMonitoringProviderModel struct {
 }
 
 func (r *createBigQueryMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_bigquery_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_bigquery_monitoring_provider"
 }
 
 func (r *createBigQueryMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

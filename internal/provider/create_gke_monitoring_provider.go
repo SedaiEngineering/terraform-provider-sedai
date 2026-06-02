@@ -42,7 +42,7 @@ type gkeMonitoringProviderModel struct {
 
 // Metadata returns the resource type name.
 func (r *createGkeMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_gke_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_gke_monitoring_provider"
 }
 
 // Schema defines the schema for the resource.

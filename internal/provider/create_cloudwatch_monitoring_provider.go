@@ -41,7 +41,7 @@ type cloudWatchMonitoringProviderModel struct {
 }
 
 func (r *createCloudWatchMonitoringProvider) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_create_cloudwatch_monitoring_provider"
+	resp.TypeName = req.ProviderTypeName + "_cloudwatch_monitoring_provider"
 }
 
 func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
