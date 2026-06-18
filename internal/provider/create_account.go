@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"time"
+
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -221,6 +223,19 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Poll until the account is queryable on the backend before returning.
+	// The Sedai API is async — returning immediately lets dependent resources
+	// (MPs, groups) fire before the account is ready, causing race conditions.
+	// Soft timeout: proceed after 30s regardless so a slow backend doesn't block forever.
+	accountId := plan.ID.ValueString()
+	for i := 0; i < 15; i++ {
+		fetched, err := account.SearchAccountsById(accountId)
+		if err == nil && fetched != nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -239,6 +254,10 @@ func (r *createAccount) Read(ctx context.Context, req resource.ReadRequest, resp
 			"Error fetching sedai account",
 			"Could not fetch account with ID "+state.ID.ValueString()+": "+err.Error(),
 		)
+		return
+	}
+	if fetchedAccount == nil {
+		resp.State.RemoveResource(ctx)
 		return
 	}
 
