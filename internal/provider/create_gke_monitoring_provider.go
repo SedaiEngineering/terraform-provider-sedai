@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -170,6 +172,11 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 
 	fetchedMonitoringProvider, err := monitoringProvider.GetMonitoringProviderById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to read monitoring provider", err.Error())
 		return
 	}

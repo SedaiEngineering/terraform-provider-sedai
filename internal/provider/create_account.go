@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -250,6 +252,11 @@ func (r *createAccount) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	fetchedAccount, err := account.SearchAccountsById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error fetching sedai account",
 			"Could not fetch account with ID "+state.ID.ValueString()+": "+err.Error(),

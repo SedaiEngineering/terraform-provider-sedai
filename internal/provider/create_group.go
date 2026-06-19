@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -238,6 +240,11 @@ func (r *group) Read(ctx context.Context, req resource.ReadRequest, resp *resour
 
 	fetched, err := groups.GetGroupById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error fetching Sedai group",
 			"Could not fetch group with ID "+state.ID.ValueString()+": "+err.Error(),
