@@ -118,12 +118,14 @@ func (r *createDatadogMonitoringProvider) Schema(_ context.Context, _ resource.S
 			// 	Optional: true,
 			// },
 			"api_key": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Computed:  false,
+				Required:  true,
+				Sensitive: true,
 			},
 			"application_key": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Computed:  false,
+				Required:  true,
+				Sensitive: true,
 			},
 		},
 	}

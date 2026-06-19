@@ -96,8 +96,9 @@ func (r *createNewrelicMonitoringProvider) Schema(_ context.Context, _ resource.
 				ElementType: types.StringType,
 			},
 			"api_key": schema.StringAttribute{
-				Computed: false,
-				Required: true,
+				Computed:  false,
+				Required:  true,
+				Sensitive: true,
 			},
 			"newrelic_account_id": schema.StringAttribute{
 				Computed: false,

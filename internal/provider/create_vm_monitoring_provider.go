@@ -117,8 +117,9 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 			// 	Optional: true,
 			// },
 			"bearer_token": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Computed:  false,
+				Optional:  true,
+				Sensitive: true,
 			},
 			"token_endpoint": schema.StringAttribute{
 				Computed: false,
@@ -129,8 +130,9 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 				Optional: true,
 			},
 			"client_secret": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Computed:  false,
+				Optional:  true,
+				Sensitive: true,
 			},
 		},
 	}
