@@ -138,6 +138,12 @@ func (r *createGkeMonitoringProvider) Create(ctx context.Context, req resource.C
 	monitoringProviderRequest := createGkeMonitoringProviderRequest(plan)
 	response, err := monitoringProvider.AddGKEMonitoring(monitoringProviderRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "GKEMONITORING"); found != nil {
+			addVerifyWarning(resp, "GKE monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create monitoring provider", err.Error())
 		return
 	}

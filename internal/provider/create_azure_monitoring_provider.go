@@ -123,6 +123,12 @@ func (r *createAzureMonitoringProvider) Create(ctx context.Context, req resource
 	mpRequest := buildAzureMonitoringRequest(plan)
 	response, err := monitoringProvider.AddAzureMonitoringProvider(mpRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "AZUREMONITOR"); found != nil {
+			addVerifyWarning(resp, "Azure monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create Azure monitoring provider", err.Error())
 		return
 	}

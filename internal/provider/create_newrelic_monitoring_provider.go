@@ -126,6 +126,12 @@ func (r *createNewrelicMonitoringProvider) Create(ctx context.Context, req resou
 	monitoringProviderRequest := createNewrelicMonitoringProviderRequest(plan)
 	response, err := monitoringProvider.AddNewRelicMonitoring(monitoringProviderRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "NEWRELIC"); found != nil {
+			addVerifyWarning(resp, "NewRelic monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create monitoring provider", err.Error())
 		return
 	}

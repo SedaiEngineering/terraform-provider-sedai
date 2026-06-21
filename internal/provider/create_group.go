@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
@@ -204,6 +205,23 @@ func (r *group) Create(ctx context.Context, req resource.CreateRequest, resp *re
 
 	created, err := groups.CreateGroup(def)
 	if err != nil {
+		// POST failed — verify if the backend created it anyway.
+		// Handles EOF-during-POST where the server processed the request but the
+		// response was lost in transit. See LIMITATIONS.md for known edge cases.
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, searchErr := groups.SearchGroupsByName(def.Name)
+			if searchErr == nil && len(existing) > 0 {
+				resp.Diagnostics.AddWarning(
+					"Group created despite connection error",
+					"Group '"+def.Name+"' was found on the backend after a failed POST — "+
+						"the response was likely lost in transit. Using existing ID: "+existing[0].ID,
+				)
+				plan.ID = basetypes.NewStringValue(existing[0].ID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+				return
+			}
+		}
 		resp.Diagnostics.AddError("Unable to create group", err.Error())
 		return
 	}

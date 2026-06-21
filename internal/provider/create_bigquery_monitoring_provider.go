@@ -71,6 +71,12 @@ func (r *createBigQueryMonitoringProvider) Create(ctx context.Context, req resou
 
 	response, err := monitoringProvider.AddBigQueryMonitoringProvider(buildBigQueryRequest(plan))
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "BQMONITORING"); found != nil {
+			addVerifyWarning(resp, "BigQuery monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create BigQuery monitoring provider", err.Error())
 		return
 	}

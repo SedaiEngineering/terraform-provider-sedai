@@ -126,6 +126,12 @@ func (r *createCloudWatchMonitoringProvider) Create(ctx context.Context, req res
 	mpRequest := buildCloudWatchRequest(plan)
 	response, err := monitoringProvider.AddCloudWatchMonitoringProvider(mpRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "CLOUDWATCH"); found != nil {
+			addVerifyWarning(resp, "CloudWatch monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create CloudWatch monitoring provider", err.Error())
 		return
 	}

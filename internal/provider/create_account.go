@@ -193,7 +193,33 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 	createAccountRequest := createAccountRequest(plan)
 	response, err := account.CreateAccount(createAccountRequest)
 	if err != nil {
+		// POST failed — verify if the backend created it anyway.
+		// Handles EOF-during-POST where the server processed the request but the
+		// response was lost in transit. See LIMITATIONS.md for known edge cases.
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, searchErr := account.SearchAccountsByName(plan.Name.ValueString())
+			if searchErr == nil && len(existing) > 0 {
+				resp.Diagnostics.AddWarning(
+					"Account created despite connection error",
+					"Account '"+plan.Name.ValueString()+"' was found on the backend after a failed POST — "+
+						"the response was likely lost in transit. Using existing ID: "+existing[0].ID,
+				)
+				plan.ID = basetypes.NewStringValue(existing[0].ID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+				return
+			}
+		}
 		resp.Diagnostics.AddError("Unable to create account", err.Error())
+		return
+	}
+
+	// Write the ID to state immediately — before any post-create work.
+	// If anything below fails, the account exists on the backend and Terraform
+	// knows its ID, so the next apply will Update rather than Create again.
+	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -217,8 +243,6 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 		plan.HelmInstallCmd = basetypes.NewStringValue("")
 		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
 	}
-
-	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
