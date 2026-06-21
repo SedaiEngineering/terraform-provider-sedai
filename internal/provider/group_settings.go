@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
+	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -207,6 +208,136 @@ func (r *groupSettings) Delete(ctx context.Context, req resource.DeleteRequest, 
 // Read flow then fetches the current values.
 func (r *groupSettings) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("group_id"), req, resp)
+}
+
+// The *FromSDK functions below are full-populate mappers used by data sources.
+// Unlike the *Refresh helpers (which only update managed/non-null fields for
+// resource reads), these map every field from the SDK struct unconditionally —
+// that is the correct semantic for a data source that returns everything.
+
+func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &kubeAppSettingsModel{
+		AvailabilityMode:                   nullableString(s.AvailabilityMode),
+		OptimizationMode:                   nullableString(s.OptimizationMode),
+		OptimizationFocus:                  nullableString(s.OptimizationFocus),
+		SedaiSyncEnabled:                   nullableBool(s.SedaiSyncEnabled),
+		IsProd:                             nullableBool(s.IsProd),
+		IsOperationAllowed:                 nullableBool(s.IsOperationAllowed),
+		HorizontalScalingEnabled:           nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas:       nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas:       nullableInt64(s.HorizontalScalingMaxReplicas),
+		HorizontalScalingReplicaMultiplier: nullableInt64(s.HorizontalScalingReplicaMultiplier),
+		VerticalScalingEnabled:             nullableBool(s.VerticalScalingEnabled),
+		VerticalScalingMinCPUCores:         nullableFloat64(s.VerticalScalingMinCPUCores),
+		VerticalScalingMinMemoryBytes:      nullableInt64(s.VerticalScalingMinMemoryBytes),
+		PredictiveScalingEnabled:           nullableBool(s.PredictiveScalingEnabled),
+		AutonomousActionWithoutTraffic:     nullableBool(s.AutonomousActionWithoutTraffic),
+		MaxLatencyIncreasePct:              nullableInt64(s.MaxLatencyIncreasePct),
+		MaxCPUIncreasePct:                  nullableInt64(s.MaxCPUIncreasePct),
+		MaxMemoryIncreasePct:               nullableInt64(s.MaxMemoryIncreasePct),
+	}
+}
+
+func bucketSettingsFromSDK(s *sdksettings.BucketSettings) *bucketSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &bucketSettingsModel{
+		OptimizationMode: nullableString(s.OptimizationMode),
+		SedaiSyncEnabled: nullableBool(s.SedaiSyncEnabled),
+	}
+}
+
+func appSettingsFromSDK(s *sdksettings.AppSettings) *appSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &appSettingsModel{
+		AvailabilityMode:             nullableString(s.AvailabilityMode),
+		OptimizationMode:             nullableString(s.OptimizationMode),
+		IsProd:                       nullableBool(s.IsProd),
+		SedaiSyncEnabled:             nullableBool(s.SedaiSyncEnabled),
+		HorizontalScalingEnabled:     nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas: nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas: nullableInt64(s.HorizontalScalingMaxReplicas),
+	}
+}
+
+func containerAppSettingsFromSDK(s *sdksettings.ContainerAppSettings) *containerAppSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &containerAppSettingsModel{
+		AvailabilityMode:               nullableString(s.AvailabilityMode),
+		OptimizationMode:               nullableString(s.OptimizationMode),
+		IsProd:                         nullableBool(s.IsProd),
+		SedaiSyncEnabled:               nullableBool(s.SedaiSyncEnabled),
+		HorizontalScalingEnabled:       nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas:   nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas:   nullableInt64(s.HorizontalScalingMaxReplicas),
+		VerticalScalingEnabled:         nullableBool(s.VerticalScalingEnabled),
+		PredictiveScalingEnabled:       nullableBool(s.PredictiveScalingEnabled),
+		OptimizationFocus:              nullableString(s.OptimizationFocus),
+		MaxLatencyIncreasePct:          nullableInt64(s.MaxLatencyIncreasePct),
+		MaxCPUIncreasePct:              nullableInt64(s.MaxCPUIncreasePct),
+		MaxMemoryIncreasePct:           nullableInt64(s.MaxMemoryIncreasePct),
+		AutonomousActionWithoutTraffic: nullableBool(s.AutonomousActionWithoutTraffic),
+	}
+}
+
+func ecsAppSettingsFromSDK(s *sdksettings.ECSAppSettings) *ecsAppSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &ecsAppSettingsModel{
+		AvailabilityMode:                  nullableString(s.AvailabilityMode),
+		OptimizationMode:                  nullableString(s.OptimizationMode),
+		IsProd:                            nullableBool(s.IsProd),
+		SedaiSyncEnabled:                  nullableBool(s.SedaiSyncEnabled),
+		HorizontalScalingEnabled:          nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas:      nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas:      nullableInt64(s.HorizontalScalingMaxReplicas),
+		VerticalScalingEnabled:            nullableBool(s.VerticalScalingEnabled),
+		PredictiveScalingEnabled:          nullableBool(s.PredictiveScalingEnabled),
+		OptimizationFocus:                 nullableString(s.OptimizationFocus),
+		MaxLatencyIncreasePct:             nullableInt64(s.MaxLatencyIncreasePct),
+		MaxCPUIncreasePct:                 nullableInt64(s.MaxCPUIncreasePct),
+		MaxMemoryIncreasePct:              nullableInt64(s.MaxMemoryIncreasePct),
+		AutonomousActionWithoutTraffic:    nullableBool(s.AutonomousActionWithoutTraffic),
+		ServiceAutoscalingEnabled:         nullableBool(s.ServiceAutoscalingEnabled),
+		HorizontalScalingReplicaIncrement: nullableInt64(s.HorizontalScalingReplicaIncrement),
+		VerticalScalingMinCPU:             nullableInt64(s.VerticalScalingMinCPU),
+		VerticalScalingMinMemory:          nullableInt64(s.VerticalScalingMinMemory),
+	}
+}
+
+func serverlessSettingsFromSDK(s *sdksettings.ServerlessSettings) *serverlessSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &serverlessSettingsModel{
+		AvailabilityMode:    nullableString(s.AvailabilityMode),
+		OptimizationMode:    nullableString(s.OptimizationMode),
+		OptimizationFocus:   nullableString(s.OptimizationFocus),
+		ConcurrencyMode:     nullableString(s.ConcurrencyMode),
+		MaxCostChangePct:    nullableInt64(s.MaxCostChangePct),
+		MaxLatencyChangePct: nullableInt64(s.MaxLatencyChangePct),
+		SedaiSyncEnabled:    nullableBool(s.SedaiSyncEnabled),
+	}
+}
+
+func volumeSettingsFromSDK(s *sdksettings.VolumeSettings) *volumeSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &volumeSettingsModel{
+		AvailabilityMode: nullableString(s.AvailabilityMode),
+		OptimizationMode: nullableString(s.OptimizationMode),
+		SedaiSyncEnabled: nullableBool(s.SedaiSyncEnabled),
+	}
 }
 
 func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSettings {
