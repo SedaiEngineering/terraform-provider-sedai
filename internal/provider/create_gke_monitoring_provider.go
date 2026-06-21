@@ -303,25 +303,25 @@ func createGkeMonitoringProviderRequest(plan gkeMonitoringProviderModel) monitor
 	if plan.IntegrationType.String() != "" {
 		createGkeMonitoringProviderRequest.IntegrationType = plan.IntegrationType.ValueString()
 	}
-	if plan.LbDimensions.IsNull() {
+	if !plan.LbDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.LbDimensions = convertFromBaseTypes(plan.LbDimensions)
 	}
-	if plan.AppDimensions.IsNull() {
+	if !plan.AppDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.AppDimensions = convertFromBaseTypes(plan.AppDimensions)
 	}
-	if plan.InstanceDimensions.IsNull() {
+	if !plan.InstanceDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.InstanceDimensions = convertFromBaseTypes(plan.InstanceDimensions)
 	}
-	if plan.RegionDimensions.IsNull() {
+	if !plan.RegionDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.RegionDimensions = convertFromBaseTypes(plan.RegionDimensions)
 	}
-	if plan.ContainerDimensions.IsNull() {
+	if !plan.ContainerDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.ContainerDimensions = convertFromBaseTypes(plan.ContainerDimensions)
 	}
-	if plan.NamespaceDimensions.IsNull() {
+	if !plan.NamespaceDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.NamespaceDimensions = convertFromBaseTypes(plan.NamespaceDimensions)
 	}
-	if plan.ClusterDimensions.IsNull() {
+	if !plan.ClusterDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
 	}
 

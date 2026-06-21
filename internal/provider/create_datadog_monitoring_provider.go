@@ -314,25 +314,25 @@ func createDatadogMonitoringProviderRequest(plan datadogMonitoringProviderModel)
 	if plan.IntegrationType.String() != "" {
 		createDatadogMonitoringProviderRequest.IntegrationType = plan.IntegrationType.ValueString()
 	}
-	if plan.LbDimensions.IsNull() {
+	if !plan.LbDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.LbDimensions = convertFromBaseTypes(plan.LbDimensions)
 	}
-	if plan.AppDimensions.IsNull() {
+	if !plan.AppDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.AppDimensions = convertFromBaseTypes(plan.AppDimensions)
 	}
-	if plan.InstanceDimensions.IsNull() {
+	if !plan.InstanceDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.InstanceDimensions = convertFromBaseTypes(plan.InstanceDimensions)
 	}
-	if plan.RegionDimensions.IsNull() {
+	if !plan.RegionDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.RegionDimensions = convertFromBaseTypes(plan.RegionDimensions)
 	}
-	if plan.ContainerDimensions.IsNull() {
+	if !plan.ContainerDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.ContainerDimensions = convertFromBaseTypes(plan.ContainerDimensions)
 	}
-	if plan.NamespaceDimensions.IsNull() {
+	if !plan.NamespaceDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.NamespaceDimensions = convertFromBaseTypes(plan.NamespaceDimensions)
 	}
-	if plan.ClusterDimensions.IsNull() {
+	if !plan.ClusterDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
 	}
 

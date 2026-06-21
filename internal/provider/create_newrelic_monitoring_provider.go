@@ -287,22 +287,22 @@ func createNewrelicMonitoringProviderRequest(plan newrelicMonitoringProviderMode
 	if plan.IntegrationType.String() != "" {
 		createNewrelicMonitoringProviderRequest.IntegrationType = plan.IntegrationType.ValueString()
 	}
-	if plan.LbDimensions.IsNull() {
+	if !plan.LbDimensions.IsNull() {
 		createNewrelicMonitoringProviderRequest.LbDimensions = convertFromBaseTypes(plan.LbDimensions)
 	}
-	if plan.AppDimensions.IsNull() {
+	if !plan.AppDimensions.IsNull() {
 		createNewrelicMonitoringProviderRequest.AppDimensions = convertFromBaseTypes(plan.AppDimensions)
 	}
-	if plan.InstanceDimensions.IsNull() {
+	if !plan.InstanceDimensions.IsNull() {
 		createNewrelicMonitoringProviderRequest.InstanceDimensions = convertFromBaseTypes(plan.InstanceDimensions)
 	}
-	if plan.ContainerDimensions.IsNull() {
+	if !plan.ContainerDimensions.IsNull() {
 		createNewrelicMonitoringProviderRequest.ContainerDimensions = convertFromBaseTypes(plan.ContainerDimensions)
 	}
-	if plan.NamespaceDimensions.IsNull() {
+	if !plan.NamespaceDimensions.IsNull() {
 		createNewrelicMonitoringProviderRequest.NamespaceDimensions = convertFromBaseTypes(plan.NamespaceDimensions)
 	}
-	if plan.ClusterDimensions.IsNull() {
+	if !plan.ClusterDimensions.IsNull() {
 		createNewrelicMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
 	}
 

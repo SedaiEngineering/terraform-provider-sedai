@@ -370,40 +370,40 @@ func createFpMonitoringProviderRequest(plan fpMonitoringProviderModel) monitorin
 	if plan.IntegrationType.String() != "" {
 		createFpMonitoringProviderRequest.IntegrationType = plan.IntegrationType.ValueString()
 	}
-	if plan.LbDimensions.IsNull() {
+	if !plan.LbDimensions.IsNull() {
 		createFpMonitoringProviderRequest.LbDimensions = convertFromBaseTypes(plan.LbDimensions)
 	}
-	if plan.AppDimensions.IsNull() {
+	if !plan.AppDimensions.IsNull() {
 		createFpMonitoringProviderRequest.AppDimensions = convertFromBaseTypes(plan.AppDimensions)
 	}
-	if plan.InstanceDimensions.IsNull() {
+	if !plan.InstanceDimensions.IsNull() {
 		createFpMonitoringProviderRequest.InstanceDimensions = convertFromBaseTypes(plan.InstanceDimensions)
 	}
-	if plan.RegionDimensions.IsNull() {
+	if !plan.RegionDimensions.IsNull() {
 		createFpMonitoringProviderRequest.RegionDimensions = convertFromBaseTypes(plan.RegionDimensions)
 	}
-	if plan.ContainerDimensions.IsNull() {
+	if !plan.ContainerDimensions.IsNull() {
 		createFpMonitoringProviderRequest.ContainerDimensions = convertFromBaseTypes(plan.ContainerDimensions)
 	}
-	if plan.NamespaceDimensions.IsNull() {
+	if !plan.NamespaceDimensions.IsNull() {
 		createFpMonitoringProviderRequest.NamespaceDimensions = convertFromBaseTypes(plan.NamespaceDimensions)
 	}
-	if plan.ClusterDimensions.IsNull() {
+	if !plan.ClusterDimensions.IsNull() {
 		createFpMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
 	}
-	if plan.OsDimensions.IsNull() {
+	if !plan.OsDimensions.IsNull() {
 		createFpMonitoringProviderRequest.OsDimensions = convertFromBaseTypes(plan.OsDimensions)
 	}
-	if plan.ArchitectureDimensions.IsNull() {
+	if !plan.ArchitectureDimensions.IsNull() {
 		createFpMonitoringProviderRequest.ArchitectureDimensions = convertFromBaseTypes(plan.ArchitectureDimensions)
 	}
-	if plan.InstanceTypeDimensions.IsNull() {
+	if !plan.InstanceTypeDimensions.IsNull() {
 		createFpMonitoringProviderRequest.InstanceTypeDimensions = convertFromBaseTypes(plan.InstanceTypeDimensions)
 	}
-	if plan.AzDimensions.IsNull() {
+	if !plan.AzDimensions.IsNull() {
 		createFpMonitoringProviderRequest.AzDimensions = convertFromBaseTypes(plan.AzDimensions)
 	}
-	if plan.EnvDimensions.IsNull() {
+	if !plan.EnvDimensions.IsNull() {
 		createFpMonitoringProviderRequest.EnvDimensions = convertFromBaseTypes(plan.EnvDimensions)
 	}
 	// if plan.InstanceIdPattern.String() != "" {
