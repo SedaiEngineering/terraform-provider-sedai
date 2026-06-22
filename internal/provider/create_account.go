@@ -142,13 +142,19 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"role": schema.StringAttribute{
 				Optional:    true,
-				Description: "IAM role ARN for role-based authentication (AWS / Kubernetes AWS).",
+				Description: "IAM role ARN for role-based authentication (AWS / Kubernetes AWS). Changing this forces a new resource — the ARN encodes the AWS account ID, so a different ARN means a different AWS account.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"external_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "External ID for the IAM role (AWS / Kubernetes AWS).",
+				Description: "External ID for the IAM role (AWS / Kubernetes AWS). Changing this forces a new resource.",
 				Validators: []validator.String{
 					stringvalidator.AlsoRequires(path.MatchRoot("role")),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"access_key": schema.StringAttribute{
