@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
@@ -467,7 +468,13 @@ func (r *createAccount) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	_, err := account.DeleteAccount(state.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to delete account", err.Error())
+		// If the account no longer exists on the backend (backend NPE on null account,
+		// or explicit not-found), treat delete as success — desired state is achieved.
+		msg := err.Error()
+		if strings.Contains(msg, "null") || strings.Contains(msg, "not found") || strings.Contains(msg, "404") {
+			return
+		}
+		resp.Diagnostics.AddError("Unable to delete account", msg)
 		return
 	}
 }
