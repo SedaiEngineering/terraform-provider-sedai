@@ -86,6 +86,9 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Required:    true,
 				Description: "Cloud provider. Valid values: `AWS`, `AZURE`, `GCP`, `KUBERNETES`.",
 				Validators:  []validator.String{cloudProviderValidator()},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Required:    true,
