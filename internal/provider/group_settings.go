@@ -110,7 +110,7 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
@@ -177,7 +177,7 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
@@ -363,22 +363,50 @@ func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSet
 	}
 }
 
-// validateAutoModeWithAppSettings returns an error message when AUTO is set at
-// the top level alongside an app_settings block. The SDK fans the top-level mode
-// into every section including appCommonSettings, which disallows AUTO — causing
-// silent coercion or perpetual drift. Returns "" when the combination is valid.
-func validateAutoModeWithAppSettings(availMode, optMode string, appSettings *appSettingsModel) string {
-	if appSettings == nil {
-		return ""
+// validateTopLevelModeConflicts checks that the top-level availability/optimization
+// modes are compatible with any per-type blocks the user is managing. The SDK fans
+// the top-level mode into every section — if a section does not support a mode, writing
+// it causes silent undefined behavior or perpetual drift. Returns "" when valid.
+//
+// Rules (per spec and provider validators):
+//   - app_settings, bucket_settings, volume_settings: no AUTO for either mode
+//   - bucket_settings: no availability_mode at all (backend ignores it)
+//   - volume_settings: no AUTO for either mode
+//   - serverless_settings: no CO_PILOT for optimization_mode
+func validateTopLevelModeConflicts(availMode, optMode string,
+	appSettings *appSettingsModel,
+	bucketSettings *bucketSettingsModel,
+	volumeSettings *volumeSettingsModel,
+	serverlessSettings *serverlessSettingsModel,
+) string {
+	if appSettings != nil {
+		if availMode == "AUTO" {
+			return "availability_mode = AUTO cannot be combined with an app_settings block. " +
+				"The app type does not support AUTO. Use DATA_PILOT or CO_PILOT at the top level, " +
+				"or set app_settings.availability_mode separately."
+		}
+		if optMode == "AUTO" {
+			return "optimization_mode = AUTO cannot be combined with an app_settings block. " +
+				"The app type does not support AUTO."
+		}
 	}
-	if availMode == "AUTO" {
-		return "availability_mode = AUTO cannot be combined with an app_settings block. " +
-			"The app type does not support AUTO. Use DATA_PILOT or CO_PILOT at the top level, " +
-			"or set app_settings.availability_mode separately."
+	if bucketSettings != nil && optMode == "AUTO" {
+		return "optimization_mode = AUTO cannot be combined with a bucket_settings block. " +
+			"S3 buckets do not support AUTO — use DATA_PILOT or CO_PILOT."
 	}
-	if optMode == "AUTO" {
-		return "optimization_mode = AUTO cannot be combined with an app_settings block. " +
-			"The app type does not support AUTO."
+	if volumeSettings != nil {
+		if availMode == "AUTO" {
+			return "availability_mode = AUTO cannot be combined with a volume_settings block. " +
+				"EBS volumes do not support AUTO — use DATA_PILOT or CO_PILOT."
+		}
+		if optMode == "AUTO" {
+			return "optimization_mode = AUTO cannot be combined with a volume_settings block. " +
+				"EBS volumes do not support AUTO — use DATA_PILOT or CO_PILOT."
+		}
+	}
+	if serverlessSettings != nil && optMode == "CO_PILOT" {
+		return "optimization_mode = CO_PILOT cannot be combined with a serverless_settings block. " +
+			"Lambda functions do not support CO_PILOT — use DATA_PILOT or AUTO."
 	}
 	return ""
 }

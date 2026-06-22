@@ -105,7 +105,7 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
@@ -161,7 +161,7 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
