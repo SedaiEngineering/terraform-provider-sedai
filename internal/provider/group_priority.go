@@ -98,9 +98,24 @@ func (r *groupPriority) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	r.applyPlan(ctx, plan, &resp.Diagnostics)
+	statuses := r.applyPlan(ctx, plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Write confirmed priorities from the update response into state.
+	// This avoids an immediate Read that would hit the stale 12h cache —
+	// the response reflects what was actually accepted by the backend.
+	confirmedByGroup := make(map[string]int, len(statuses))
+	for _, s := range statuses {
+		if s.Success {
+			confirmedByGroup[s.GroupID] = s.RequestedPriority
+		}
+	}
+	for i, entry := range plan.GroupPriorities {
+		if confirmed, ok := confirmedByGroup[entry.GroupID]; ok {
+			plan.GroupPriorities[i].Priority = int64(confirmed)
+		}
 	}
 
 	plan.ID = basetypes.NewStringValue(joinGroupIDs(plan.GroupPriorities))
@@ -155,9 +170,24 @@ func (r *groupPriority) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	r.applyPlan(ctx, plan, &resp.Diagnostics)
+	statuses := r.applyPlan(ctx, plan, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Write confirmed priorities from the update response into state.
+	// This avoids an immediate Read that would hit the stale 12h cache —
+	// the response reflects what was actually accepted by the backend.
+	confirmedByGroup := make(map[string]int, len(statuses))
+	for _, s := range statuses {
+		if s.Success {
+			confirmedByGroup[s.GroupID] = s.RequestedPriority
+		}
+	}
+	for i, entry := range plan.GroupPriorities {
+		if confirmed, ok := confirmedByGroup[entry.GroupID]; ok {
+			plan.GroupPriorities[i].Priority = int64(confirmed)
+		}
 	}
 
 	plan.ID = basetypes.NewStringValue(joinGroupIDs(plan.GroupPriorities))
@@ -193,10 +223,10 @@ func (r *groupPriority) ImportState(ctx context.Context, req resource.ImportStat
 
 // applyPlan converts the plan into SDK GroupPriority entries, calls the
 // batch update, and reports any per-entry failures back as diagnostics.
-func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceModel, diags *diag.Diagnostics) {
+func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceModel, diags *diag.Diagnostics) []groups.GroupPriorityUpdateStatus {
 	if len(plan.GroupPriorities) == 0 {
 		diags.AddError("Empty group_priorities", "At least one `group_priorities` block is required.")
-		return
+		return nil
 	}
 
 	sdkEntries := make([]groups.GroupPriority, 0, len(plan.GroupPriorities))
@@ -210,7 +240,7 @@ func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceM
 	statuses, err := groups.UpdateGroupPriorities(sdkEntries)
 	if err != nil {
 		diags.AddError("Unable to update group priorities", err.Error())
-		return
+		return nil
 	}
 	for _, s := range statuses {
 		if !s.Success {
@@ -220,6 +250,7 @@ func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceM
 			)
 		}
 	}
+	return statuses
 }
 
 // joinGroupIDs builds the composite resource ID (comma-separated group IDs)
