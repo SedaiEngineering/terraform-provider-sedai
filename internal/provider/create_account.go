@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -84,14 +85,17 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"cloud_provider": schema.StringAttribute{
 				Required:    true,
 				Description: "Cloud provider. Valid values: `AWS`, `AZURE`, `GCP`, `KUBERNETES`.",
+				Validators:  []validator.String{cloudProviderValidator()},
 			},
 			"integration_type": schema.StringAttribute{
 				Required:    true,
 				Description: "Integration type. Valid values: `AGENTLESS`, `AGENT_BASED`.",
+				Validators:  []validator.String{integrationTypeValidator()},
 			},
 			"cluster_provider": schema.StringAttribute{
 				Optional:    true,
 				Description: "Kubernetes cluster provider. Required when `cloud_provider = \"KUBERNETES\"`. Valid values: `AWS`, `GCP`, `AZURE`, `SELF_MANAGED`.",
+				Validators:  []validator.String{clusterProviderValidator()},
 			},
 			"cluster_url": schema.StringAttribute{
 				Optional:    true,
@@ -176,6 +180,7 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:    true,
 				ElementType: types.StringType,
 				Description: "Cloud services to enable. AWS values: `LAMBDA`, `EC2`, `ECS`, `EBS`, `EFS`, `S3`, `RDS`, `DYNAMO_DB`, `DATABRICKS`. Azure values: `VM`, `AZURE_DISK`, `AZURE_BLOB`, `DATABRICKS`. GCP values: `GCE`, `DATAFLOW`, `GCP_DISK`, `CLOUD_STORAGE`, `BIG_QUERY`, `DATABRICKS`.",
+				Validators:  []validator.List{managedServicesValidator()},
 			},
 		},
 	}
