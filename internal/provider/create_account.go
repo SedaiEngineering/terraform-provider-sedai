@@ -363,10 +363,41 @@ func (r *createAccount) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	state.ID = basetypes.NewStringValue(fetchedAccount.ID)
-	state.Name = basetypes.NewStringValue(fetchedAccount.Name)
+	state.ID            = basetypes.NewStringValue(fetchedAccount.ID)
+	state.Name          = basetypes.NewStringValue(fetchedAccount.Name)
 	state.CloudProvider = basetypes.NewStringValue(fetchedAccount.AccountDetails.CloudProvider)
 	state.IntegrationType = basetypes.NewStringValue(fetchedAccount.AccountDetails.IntegrationType)
+
+	// Refresh cloud-specific non-secret fields.
+	// Write-only fields (role, access_key, secret_key, client_secret,
+	// service_account_json, external_id, client_id) are not returned by the
+	// backend GET — preserve prior state values for those.
+	if fetchedAccount.AccountDetails.SubscriptionId != "" {
+		state.SubscriptionId = basetypes.NewStringValue(fetchedAccount.AccountDetails.SubscriptionId)
+	}
+	if fetchedAccount.AccountDetails.TenantId != "" {
+		state.TenantId = basetypes.NewStringValue(fetchedAccount.AccountDetails.TenantId)
+	}
+	if fetchedAccount.AccountDetails.ProjectId != "" {
+		state.ProjectId = basetypes.NewStringValue(fetchedAccount.AccountDetails.ProjectId)
+	}
+	if fetchedAccount.AccountDetails.Metadata != nil {
+		if fetchedAccount.AccountDetails.Metadata.ClusterProvider != "" {
+			state.ClusterProvider = basetypes.NewStringValue(fetchedAccount.AccountDetails.Metadata.ClusterProvider)
+		}
+		if fetchedAccount.AccountDetails.Metadata.ClusterUrl != "" {
+			state.ClusterURL = basetypes.NewStringValue(fetchedAccount.AccountDetails.Metadata.ClusterUrl)
+		}
+		if fetchedAccount.AccountDetails.Metadata.CaCertData != "" {
+			state.CACertificate = basetypes.NewStringValue(fetchedAccount.AccountDetails.Metadata.CaCertData)
+		}
+	}
+	if len(fetchedAccount.AccountDetails.UserSelectedManagedServices) > 0 {
+		svcs, diagSvcs := types.ListValueFrom(ctx, types.StringType, fetchedAccount.AccountDetails.UserSelectedManagedServices)
+		if !diagSvcs.HasError() {
+			state.UserSelectedManagedServices = svcs
+		}
+	}
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
