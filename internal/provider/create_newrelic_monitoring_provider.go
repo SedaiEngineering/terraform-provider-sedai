@@ -55,7 +55,9 @@ func (r *createNewrelicMonitoringProvider) Schema(_ context.Context, _ resource.
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
-				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Computed: false,
@@ -67,10 +69,16 @@ func (r *createNewrelicMonitoringProvider) Schema(_ context.Context, _ resource.
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,

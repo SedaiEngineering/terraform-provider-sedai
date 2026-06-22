@@ -58,7 +58,9 @@ func (r *createDatadogMonitoringProvider) Schema(_ context.Context, _ resource.S
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
-				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Computed: false,
@@ -70,10 +72,16 @@ func (r *createDatadogMonitoringProvider) Schema(_ context.Context, _ resource.S
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,

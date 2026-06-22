@@ -64,7 +64,9 @@ func (r *createFpMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
-				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Computed: false,
@@ -80,10 +82,16 @@ func (r *createFpMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,

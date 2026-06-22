@@ -56,8 +56,10 @@ func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.Schem
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
-				Optional:    true,
 				Description: "Monitoring provider ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Required:    true,
@@ -74,11 +76,17 @@ func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.Schem
 				Computed:    true,
 				Optional:    true,
 				Description: "Monitoring provider name (populated by Sedai).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed:    true,
 				Optional:    true,
 				Description: "Integration type (populated from the account).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,

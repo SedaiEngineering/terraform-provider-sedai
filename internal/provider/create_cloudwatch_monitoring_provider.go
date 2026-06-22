@@ -54,8 +54,10 @@ func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resourc
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
-				Optional:    true,
 				Description: "Monitoring provider ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Required:    true,
@@ -68,11 +70,17 @@ func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resourc
 				Computed:    true,
 				Optional:    true,
 				Description: "Monitoring provider name (populated by Sedai).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed:    true,
 				Optional:    true,
 				Description: "Integration type (populated from the account).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"use_account_credentials": schema.BoolAttribute{
 				Computed:    true,
