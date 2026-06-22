@@ -8,6 +8,7 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -127,6 +128,13 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:    true,
 				Sensitive:   true,
 				Description: "GCP service account JSON key. Required for GCP and Kubernetes GCP accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("role"),
+					),
+				},
 			},
 			"ca_certificate": schema.StringAttribute{
 				Optional:    true,
@@ -139,15 +147,32 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"external_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "External ID for the IAM role (AWS / Kubernetes AWS).",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("role")),
+				},
 			},
 			"access_key": schema.StringAttribute{
 				Optional:    true,
 				Description: "AWS access key for static credential authentication.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("secret_key")),
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("tenant_id"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"secret_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "AWS secret key for static credential authentication.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("access_key")),
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("tenant_id"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"agent_api_key": schema.StringAttribute{
 				Computed:    true,
@@ -168,19 +193,48 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"tenant_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Azure Active Directory tenant ID. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("role"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"subscription_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Azure subscription ID. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"client_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Azure service principal client ID. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"client_secret": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "Azure service principal client secret. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"user_selected_managed_services": schema.ListAttribute{
 				Optional:    true,

@@ -8,9 +8,12 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework-validators/boolvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -87,16 +90,30 @@ func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resourc
 				Optional:    true,
 				Default:     booldefault.StaticBool(true),
 				Description: "Use the AWS credentials from the account. Defaults to true. Set to false to provide an explicit role or access key.",
+				Validators: []validator.Bool{
+					boolvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+					),
+				},
 			},
 			"access_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "AWS access key. Used when `use_account_credentials = false`.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("secret_key")),
+					stringvalidator.ConflictsWith(path.MatchRoot("use_account_credentials")),
+				},
 			},
 			"secret_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "AWS secret key. Used when `use_account_credentials = false`.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("access_key")),
+					stringvalidator.ConflictsWith(path.MatchRoot("use_account_credentials")),
+				},
 			},
 			"role": schema.StringAttribute{
 				Optional:    true,

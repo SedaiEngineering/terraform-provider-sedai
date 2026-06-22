@@ -7,11 +7,13 @@ import (
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -135,6 +137,13 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 				Computed:  false,
 				Optional:  true,
 				Sensitive: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("token_endpoint"),
+						path.MatchRoot("client_id"),
+						path.MatchRoot("client_secret"),
+					),
+				},
 			},
 			"token_endpoint": schema.StringAttribute{
 				Computed: false,
@@ -143,11 +152,17 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 			"client_id": schema.StringAttribute{
 				Computed: false,
 				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("bearer_token")),
+				},
 			},
 			"client_secret": schema.StringAttribute{
 				Computed:  false,
 				Optional:  true,
 				Sensitive: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("bearer_token")),
+				},
 			},
 		},
 	}
