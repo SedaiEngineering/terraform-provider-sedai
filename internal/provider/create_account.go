@@ -94,6 +94,9 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Required:    true,
 				Description: "Integration type. Valid values: `AGENTLESS`, `AGENT_BASED`.",
 				Validators:  []validator.String{integrationTypeValidator()},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"cluster_provider": schema.StringAttribute{
 				Optional:    true,

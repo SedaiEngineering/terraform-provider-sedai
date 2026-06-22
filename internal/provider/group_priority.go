@@ -75,6 +75,9 @@ func (r *groupPriority) Schema(_ context.Context, _ resource.SchemaRequest, resp
 						"group_id": schema.StringAttribute{
 							Required:    true,
 							Description: "The Sedai group ID. Typically `sedai_group.<name>.id`. The referenced group must be enabled.",
+							PlanModifiers: []planmodifier.String{
+								stringplanmodifier.RequiresReplace(),
+							},
 						},
 						"priority": schema.Int64Attribute{
 							Required:    true,
