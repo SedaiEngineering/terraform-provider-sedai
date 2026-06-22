@@ -110,6 +110,11 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
+	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+		return
+	}
+
 	// Settings must be initialized before the first update; the API is a
 	// no-op if already initialized so we always call it from Create.
 	if err := groups.InitializeGroupSettings(plan.GroupID.ValueString()); err != nil {
@@ -169,6 +174,11 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 	var plan groupSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
 
@@ -351,4 +361,24 @@ func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSet
 		ServerlessSettings:   serverlessSettingsToSDK(p.ServerlessSettings),
 		VolumeSettings:       volumeSettingsToSDK(p.VolumeSettings),
 	}
+}
+
+// validateAutoModeWithAppSettings returns an error message when AUTO is set at
+// the top level alongside an app_settings block. The SDK fans the top-level mode
+// into every section including appCommonSettings, which disallows AUTO — causing
+// silent coercion or perpetual drift. Returns "" when the combination is valid.
+func validateAutoModeWithAppSettings(availMode, optMode string, appSettings *appSettingsModel) string {
+	if appSettings == nil {
+		return ""
+	}
+	if availMode == "AUTO" {
+		return "availability_mode = AUTO cannot be combined with an app_settings block. " +
+			"The app type does not support AUTO. Use DATA_PILOT or CO_PILOT at the top level, " +
+			"or set app_settings.availability_mode separately."
+	}
+	if optMode == "AUTO" {
+		return "optimization_mode = AUTO cannot be combined with an app_settings block. " +
+			"The app type does not support AUTO."
+	}
+	return ""
 }

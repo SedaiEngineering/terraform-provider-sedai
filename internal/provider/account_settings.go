@@ -105,6 +105,11 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+		return
+	}
+
 	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to set account settings", err.Error())
 		return
@@ -153,6 +158,11 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 	var plan accountSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := validateAutoModeWithAppSettings(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
 
