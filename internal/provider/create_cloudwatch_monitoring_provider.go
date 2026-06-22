@@ -260,8 +260,7 @@ func (r *createCloudWatchMonitoringProvider) Delete(ctx context.Context, req res
 		return
 	}
 
-	deleted, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleted {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete CloudWatch monitoring provider", err.Error())
 		return
 	}

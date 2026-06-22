@@ -267,8 +267,7 @@ func (r *createNewrelicMonitoringProvider) Delete(ctx context.Context, req resou
 		return
 	}
 
-	deleteMonitoringProvider, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleteMonitoringProvider {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete monitoring provider", err.Error())
 		return
 	}

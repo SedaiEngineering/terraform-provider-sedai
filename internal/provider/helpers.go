@@ -7,6 +7,29 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
+// deleteMPGracefully deletes a monitoring provider and handles the case where
+// the backend returns an error from a non-fatal cleanup step (e.g. exporter
+// deregistration failure). If the delete call errors but the provider no longer
+// exists on a subsequent Read, the delete is treated as successful.
+//
+// This is a provider-side workaround for a backend issue where the exporter
+// deregistration step fails and causes the delete response to return an error
+// even though the MP was actually removed. The correct long-term fix is to make
+// exporter deregistration best-effort in sedai-core's delete handler.
+func deleteMPGracefully(id string) error {
+	_, err := monitoringProvider.DeleteMonitoringProvider(id)
+	if err != nil {
+		// Check if the resource was actually deleted despite the error.
+		// If it's gone, suppress the error — delete succeeded.
+		existing, fetchErr := monitoringProvider.GetMonitoringProviderById(id)
+		if fetchErr != nil || existing == nil {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
 // verifyMonitoringProviderCreated polls GET after a failed POST to check if the backend
 // created the monitoring provider despite the connection error (EOF-during-POST).
 // Returns the existing provider's map if found, nil otherwise.

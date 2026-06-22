@@ -169,8 +169,7 @@ func (r *createBigQueryMonitoringProvider) Delete(ctx context.Context, req resou
 		return
 	}
 
-	deleted, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleted {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete BigQuery monitoring provider", err.Error())
 		return
 	}
