@@ -3,7 +3,7 @@ module terraform-provider-sedai
 go 1.24.0
 
 require (
-	github.com/SedaiEngineering/sedai-sdk-go v1.2.0
+	github.com/SedaiEngineering/sedai-sdk-go v1.3.0
 	github.com/hashicorp/terraform-plugin-framework v1.16.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 )
@@ -35,4 +35,4 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
-replace github.com/SedaiEngineering/sedai-sdk-go => ../sedai-sdk-go
+// replace github.com/SedaiEngineering/sedai-sdk-go => ../sedai-sdk-go
