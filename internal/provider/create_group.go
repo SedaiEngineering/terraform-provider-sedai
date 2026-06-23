@@ -442,6 +442,9 @@ func denormalizeResourceTypes(in []string) []string {
 // `namespaces = []` in HCL matches the empty list returned by Read —
 // preventing perpetual `null → []` drift on every plan (BUG-09).
 func stringsToList(values []string) basetypes.ListValue {
+	if len(values) == 0 {
+		return basetypes.NewListNull(types.StringType)
+	}
 	elements := make([]basetypes.StringValue, 0, len(values))
 	for _, v := range values {
 		elements = append(elements, basetypes.NewStringValue(v))
