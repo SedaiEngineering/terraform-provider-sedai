@@ -3,8 +3,91 @@
 ## Prerequisites
 
 - Go 1.24+
+- `make` (see [Installing make](#installing-make) below if you don't have it)
 - A dedicated Sedai test tenant (do not use production)
 - API credentials for that tenant
+
+---
+
+## Installing make
+
+The test commands in this guide go through `make` targets defined in `GNUmakefile`.
+All commands assume a Bash-compatible shell.
+
+### macOS
+
+`make` ships with Apple's Command Line Tools. If you don't have it yet:
+
+```bash
+xcode-select --install
+```
+
+Verify:
+
+```bash
+make --version
+```
+
+Alternatively, via Homebrew (newer GNU make, installed as `gmake`):
+
+```bash
+brew install make
+gmake --version
+```
+
+> If you install via Homebrew, either call `gmake` in place of `make`, or ensure
+> the Homebrew `make` is on your `PATH` ahead of the system one.
+
+### Windows
+
+The `GNUmakefile` uses Bash-style syntax, so run it from a Bash environment —
+**WSL 2** is the recommended path. From PowerShell (as Administrator):
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Then inside the WSL Ubuntu shell, install the build toolchain:
+
+```bash
+sudo apt update && sudo apt install -y build-essential
+make --version
+```
+
+Install Go inside WSL as well (the Linux binary from https://go.dev/dl/), and clone
+the repo into the WSL filesystem (e.g. `~/terraform-provider-sedai`) for best
+performance — not under `/mnt/c`.
+
+#### Alternative: Git Bash + Chocolatey/Scoop (no WSL)
+
+If you can't use WSL, install `make` into Git Bash:
+
+```powershell
+# Chocolatey (run as Administrator)
+choco install make
+
+# or Scoop
+scoop install make
+```
+
+Then run the `make` targets from a **Git Bash** terminal (not `cmd.exe` or
+PowerShell, which won't provide the Bash shell the makefile expects).
+
+> Note: some targets shell out to `go`, `rm`, `mkdir`, etc. WSL gives you the
+> full Unix toolset; Git Bash covers most of it but may need extra setup for
+> report-generation targets.
+
+### Linux
+
+Usually pre-installed. If not:
+
+```bash
+# Debian/Ubuntu
+sudo apt install -y build-essential
+
+# RHEL/Fedora
+sudo dnf install -y make gcc
+```
 
 ---
 
