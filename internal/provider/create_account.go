@@ -339,7 +339,7 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 	// The Sedai API is async — returning immediately lets dependent resources
 	// (MPs, groups) fire before the account is ready, causing race conditions.
 	// Soft timeout: proceed after 30s regardless so a slow backend doesn't block forever.
-	accountId := plan.ID.ValueString()
+	accountId = plan.ID.ValueString()
 	for i := 0; i < 15; i++ {
 		fetched, err := account.SearchAccountsById(accountId)
 		if err == nil && fetched != nil {

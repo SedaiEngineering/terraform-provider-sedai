@@ -28,7 +28,7 @@ resource "sedai_newrelic_monitoring_provider" "newrelic_mp" {
 ### Required
 
 - `account_id` (String)
-- `api_key` (String)
+- `api_key` (String, Sensitive)
 - `api_server` (String)
 - `newrelic_account_id` (String)
 
