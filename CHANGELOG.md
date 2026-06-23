@@ -1,5 +1,113 @@
 ## 0.2.0 (Unreleased)
 
+### MIGRATION GUIDE — What to change in your existing Terraform templates
+
+If you are upgrading from a previous version, review the following checklist.
+Each item describes exactly what to find in your HCL and what to change.
+
+---
+
+**1. Remove count references from `sedai_group` outputs or other resources**
+
+If you reference count attributes on the group resource, switch to the data source:
+
+```hcl
+# BEFORE (no longer works):
+output "lambda_count" {
+  value = sedai_group.my_group.lambda_count
+}
+
+# AFTER:
+data "sedai_group" "my_group" { name = "my-group" }
+output "lambda_count" {
+  value = data.sedai_group.my_group.lambda_count
+}
+```
+
+---
+
+**2. Remove `autonomous_action_without_traffic` from kube/ecs settings blocks**
+
+```hcl
+# BEFORE (causes plan error after upgrade):
+resource "sedai_group_settings" "prod" {
+  ...
+  kube_app_settings {
+    is_prod                         = true
+    autonomous_action_without_traffic = false   # ← REMOVE THIS LINE
+  }
+  ecs_app_settings {
+    autonomous_action_without_traffic = true    # ← REMOVE THIS LINE
+  }
+}
+
+# AFTER:
+resource "sedai_group_settings" "prod" {
+  ...
+  kube_app_settings {
+    is_prod = true
+  }
+}
+```
+
+---
+
+**3. Add `availability_mode` and `optimization_mode` to `sedai_resource_settings`**
+
+These are now Required (were Optional):
+
+```hcl
+# BEFORE (causes plan error after upgrade):
+resource "sedai_resource_settings" "my_lambda" {
+  resource_id        = "abc-123"
+  sedai_sync_enabled = true
+}
+
+# AFTER:
+resource "sedai_resource_settings" "my_lambda" {
+  resource_id       = "abc-123"
+  availability_mode = "DATA_PILOT"
+  optimization_mode = "DATA_PILOT"
+  sedai_sync_enabled = true
+}
+```
+
+---
+
+**4. Check `resource_types` on `sedai_group` resources**
+
+If you use resource types that were removed from the accepted list, update them.
+The full valid list is in the BREAKING CHANGES section below. Common ones to check:
+
+```hcl
+# Types that were REMOVED and will now fail at plan:
+# GCP_VM_INSTANCE  → use GCP_VM instead
+# GCP_SNAPSHOT, GCP_BACKEND_SERVICE, GCP_DATAFLOW_*, GCP_BIGQUERY_* → remove
+# AZURE_BLOB, AZURE_SNAPSHOT → remove (0 discovery emit sites)
+
+# Example fix:
+resource "sedai_group" "prod" {
+  resource_types = [
+    "GCP_VM",        # was GCP_VM_INSTANCE — corrected
+    "GCP_DISK",
+    "AZURE_VM",
+    "AZURE_TAGS",    # new — captures tag-discovered VMs
+  ]
+}
+```
+
+---
+
+**5. No changes needed for (already compatible):**
+- `sedai_account` — all existing attributes still work
+- `sedai_group` definition fields (name, cloud_account_ids, regions, namespaces etc.)
+- `sedai_group_settings` and `sedai_account_settings` — modes still Required, same values
+- `sedai_cloudwatch_monitoring_provider` — no HCL changes needed
+- All monitoring providers — no HCL changes needed
+- `sedai_group_priority` — no HCL changes needed
+
+---
+
 ### BREAKING CHANGES
 
 * **`sedai_group` — resource counts removed.** `lambda_count`, `ec2_count`, `ecs_count`,
