@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -77,6 +78,8 @@ func (r *accountSettings) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"sedai_sync_enabled": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When true, Sedai auto-syncs the account's resources with the latest configuration. Defaults to false if omitted.",
 			},
 		},
@@ -99,6 +102,11 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 	var plan accountSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
 
@@ -150,6 +158,11 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 	var plan accountSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
 

@@ -30,7 +30,6 @@ type ecsAppSettingsModel struct {
 	MaxLatencyIncreasePct          basetypes.Int64Value  `tfsdk:"max_latency_increase_pct"`
 	MaxCPUIncreasePct              basetypes.Int64Value  `tfsdk:"max_cpu_increase_pct"`
 	MaxMemoryIncreasePct           basetypes.Int64Value  `tfsdk:"max_memory_increase_pct"`
-	AutonomousActionWithoutTraffic basetypes.BoolValue   `tfsdk:"autonomous_action_without_traffic"`
 
 	// ECS-specific.
 	ServiceAutoscalingEnabled         basetypes.BoolValue  `tfsdk:"service_autoscaling_enabled"`
@@ -56,8 +55,6 @@ func ecsAppSettingsBlock() schema.SingleNestedBlock {
 	attrs["max_latency_increase_pct"] = schema.Int64Attribute{Optional: true, Description: "Guardrail: max latency increase %."}
 	attrs["max_cpu_increase_pct"] = schema.Int64Attribute{Optional: true, Description: "Guardrail: max CPU increase %."}
 	attrs["max_memory_increase_pct"] = schema.Int64Attribute{Optional: true, Description: "Guardrail: max memory increase %."}
-	attrs["autonomous_action_without_traffic"] = schema.BoolAttribute{Optional: true, Description: "Allow Sedai to act even without recent traffic data."}
-
 	// ECS-specific extensions.
 	attrs["service_autoscaling_enabled"] = schema.BoolAttribute{Optional: true, Description: "Enable ECS service autoscaling."}
 	attrs["horizontal_scaling_replica_increment"] = schema.Int64Attribute{Optional: true, Description: "Fixed number of tasks added or removed per scaling event."}
@@ -92,7 +89,6 @@ func ecsAppSettingsToSDK(m *ecsAppSettingsModel) *sdksettings.ECSAppSettings {
 			MaxLatencyIncreasePct:          int64Ptr(m.MaxLatencyIncreasePct),
 			MaxCPUIncreasePct:              int64Ptr(m.MaxCPUIncreasePct),
 			MaxMemoryIncreasePct:           int64Ptr(m.MaxMemoryIncreasePct),
-			AutonomousActionWithoutTraffic: boolPtr(m.AutonomousActionWithoutTraffic),
 		},
 		ServiceAutoscalingEnabled:         boolPtr(m.ServiceAutoscalingEnabled),
 		HorizontalScalingReplicaIncrement: int64Ptr(m.HorizontalScalingReplicaIncrement),
@@ -120,7 +116,6 @@ func ecsAppSettingsRefresh(state *ecsAppSettingsModel, fetched *sdksettings.ECSA
 	refreshInt64IfManaged(&state.MaxLatencyIncreasePct, fetched.MaxLatencyIncreasePct)
 	refreshInt64IfManaged(&state.MaxCPUIncreasePct, fetched.MaxCPUIncreasePct)
 	refreshInt64IfManaged(&state.MaxMemoryIncreasePct, fetched.MaxMemoryIncreasePct)
-	refreshBoolIfManaged(&state.AutonomousActionWithoutTraffic, fetched.AutonomousActionWithoutTraffic)
 
 	// ECS-specific.
 	refreshBoolIfManaged(&state.ServiceAutoscalingEnabled, fetched.ServiceAutoscalingEnabled)

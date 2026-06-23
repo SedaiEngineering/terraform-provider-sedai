@@ -114,12 +114,12 @@ resource "sedai_account" "gke_account" {
 - `client_secret` (String, Sensitive) Azure service principal client secret. Required for Azure accounts.
 - `cluster_provider` (String) Kubernetes cluster provider. Required when `cloud_provider = "KUBERNETES"`. Valid values: `AWS`, `GCP`, `AZURE`, `SELF_MANAGED`.
 - `cluster_url` (String) Cluster API server URL. Required for agentless Kubernetes.
-- `external_id` (String) External ID for the IAM role (AWS / Kubernetes AWS).
+- `external_id` (String) External ID for the IAM role (AWS / Kubernetes AWS). Changing this forces a new resource.
 - `id` (String) Sedai account ID.
 - `is_zonal_cluster` (Boolean) Whether the GKE cluster is zonal (vs regional).
 - `project_id` (String) GCP project ID. Required for GCP and Kubernetes GCP accounts.
 - `region` (String) Cluster region. Used for Kubernetes accounts.
-- `role` (String) IAM role ARN for role-based authentication (AWS / Kubernetes AWS).
+- `role` (String) IAM role ARN for role-based authentication (AWS / Kubernetes AWS). Changing this forces a new resource — the ARN encodes the AWS account ID, so a different ARN means a different AWS account.
 - `secret_key` (String, Sensitive) AWS secret key for static credential authentication.
 - `service_account_json` (String, Sensitive) GCP service account JSON key. Required for GCP and Kubernetes GCP accounts.
 - `subscription_id` (String) Azure subscription ID. Required for Azure accounts.

@@ -2,9 +2,11 @@ package provider
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -45,21 +47,6 @@ type groupModel struct {
 	Regions         basetypes.ListValue   `tfsdk:"regions"`
 	Namespaces      basetypes.ListValue   `tfsdk:"namespaces"`
 
-	// Computed: matched-resource counts populated from the backend on
-	// every refresh. Mirrors the data-source side (data.sedai_group)
-	// so customers can read the same numbers from either form.
-	LambdaCount    basetypes.Int64Value `tfsdk:"lambda_count"`
-	EC2Count       basetypes.Int64Value `tfsdk:"ec2_count"`
-	ECSCount       basetypes.Int64Value `tfsdk:"ecs_count"`
-	KubeCount      basetypes.Int64Value `tfsdk:"kube_count"`
-	S3Count        basetypes.Int64Value `tfsdk:"s3_count"`
-	EBSCount       basetypes.Int64Value `tfsdk:"ebs_count"`
-	AzureVMCount   basetypes.Int64Value `tfsdk:"azure_vm_count"`
-	AzureLBCount   basetypes.Int64Value `tfsdk:"azure_lb_count"`
-	StreamingCount basetypes.Int64Value `tfsdk:"streaming_count"`
-	// ResourceCounts is the full dynamic per-type tally (superset of the
-	// named *_count fields above). Keyed by backend resource type.
-	ResourceCounts basetypes.MapValue `tfsdk:"resource_counts"`
 }
 
 // tagBlockModel is one entry of a repeatable `tags { ... }` block. Matches
@@ -103,8 +90,8 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			"auto_refresh": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "When true, Sedai periodically re-evaluates the group's filters and adds/removes resources as the cloud inventory changes. Defaults to `false`.",
+				Default:     booldefault.StaticBool(true),
+				Description: "When true, Sedai periodically re-evaluates the group's filters and adds/removes resources as the cloud inventory changes. Defaults to `true`.",
 			},
 			"parent_group_id": schema.StringAttribute{
 				Optional:    true,
@@ -123,7 +110,7 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			"resource_types": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
-				Description: "Resource type filters. Valid values: `AWS_LAMBDA`, `AWS_EC2`, `AWS_ECS`, `AWS_EBS`, `AWS_S3`, `AWS_TAGS`, `AZURE_LB`, `AZURE_VM`, `GCP_VM_INSTANCE`, `GCP_DISK`, `GCP_SNAPSHOT`, `GCP_LB`, `GCP_BUCKET`, `GCP_TAGS`, `GCP_BACKEND_SERVICE`, `GCP_DATAFLOW_STREAMING_JOB`, `GCP_DATAFLOW_BATCH_JOB`, `GCP_BIGQUERY_TRANSFER_CONFIG`, `GCP_BIGQUERY_RESERVATION`, `GCP_BIGQUERY_ASSIGNMENT`, `KUBERNETES_DEPLOYMENT`, `KUBERNETES_STATEFULSET`, `KUBERNETES_DAEMONSET`, `KUBERNETES_CRONJOB`.",
+				Description: "Resource type filters. Valid values: `AWS_LAMBDA`, `AWS_EC2`, `AWS_ECS`, `AWS_EBS`, `AWS_S3`, `AWS_TAGS`, `AWS_LB`, `AWS_ASG`, `AWS_RDS`, `AWS_DYNAMODB`, `AZURE_LB`, `AZURE_VM`, `AZURE_TAGS`, `AZURE_VMSS`, `AZURE_DISK`, `AZURE_STORAGE_BUCKET`, `GCP_VM_INSTANCE`, `GCP_DISK`, `GCP_SNAPSHOT`, `GCP_LB`, `GCP_BUCKET`, `GCP_TAGS`, `GCP_BACKEND_SERVICE`, `GCP_DATAFLOW_STREAMING_JOB`, `GCP_DATAFLOW_BATCH_JOB`, `GCP_BIGQUERY_TRANSFER_CONFIG`, `GCP_BIGQUERY_RESERVATION`, `GCP_BIGQUERY_ASSIGNMENT`, `KUBERNETES_DEPLOYMENT`, `KUBERNETES_STATEFULSET`, `KUBERNETES_DAEMONSET`, `KUBERNETES_CRONJOB`.",
 				Validators:  []validator.List{groupResourceTypeListValidator()},
 			},
 			"resource_ids": schema.ListAttribute{
@@ -142,23 +129,6 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 				Description: "Kubernetes namespace filters.",
 			},
 
-			// Computed counts — refreshed from the backend on every read.
-			// Values reflect how many resources currently match the group's
-			// filters per resource type.
-			"lambda_count":    schema.Int64Attribute{Computed: true, Description: "Number of AWS Lambda functions matched."},
-			"ec2_count":       schema.Int64Attribute{Computed: true, Description: "Number of AWS EC2 instances matched."},
-			"ecs_count":       schema.Int64Attribute{Computed: true, Description: "Number of AWS ECS services matched."},
-			"kube_count":      schema.Int64Attribute{Computed: true, Description: "Number of Kubernetes workloads matched."},
-			"s3_count":        schema.Int64Attribute{Computed: true, Description: "Number of AWS S3 buckets matched."},
-			"ebs_count":       schema.Int64Attribute{Computed: true, Description: "Number of AWS EBS volumes matched."},
-			"azure_vm_count":  schema.Int64Attribute{Computed: true, Description: "Number of Azure VMs matched."},
-			"azure_lb_count":  schema.Int64Attribute{Computed: true, Description: "Number of Azure load balancers matched."},
-			"streaming_count": schema.Int64Attribute{Computed: true, Description: "Number of streaming resources matched."},
-			"resource_counts": schema.MapAttribute{
-				Computed:    true,
-				ElementType: types.Int64Type,
-				Description: "All matched-resource counts keyed by backend resource type (e.g. `AWS_EC2`, `AZURE_VM`, `GCP_VM_INSTANCE`, `KUBERNETES`). Superset of the named `*_count` attributes — includes types those don't cover. Only types with at least one matched resource appear.",
-			},
 		},
 		Blocks: map[string]schema.Block{
 			"tags": schema.ListNestedBlock{
@@ -202,6 +172,23 @@ func (r *group) Create(ctx context.Context, req resource.CreateRequest, resp *re
 
 	created, err := groups.CreateGroup(def)
 	if err != nil {
+		// POST failed — verify if the backend created it anyway.
+		// Handles EOF-during-POST where the server processed the request but the
+		// response was lost in transit. See LIMITATIONS.md for known edge cases.
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, searchErr := groups.SearchGroupsByName(def.Name)
+			if searchErr == nil && len(existing) > 0 {
+				resp.Diagnostics.AddWarning(
+					"Group created despite connection error",
+					"Group '"+def.Name+"' was found on the backend after a failed POST — "+
+						"the response was likely lost in transit. Using existing ID: "+existing[0].ID,
+				)
+				plan.ID = basetypes.NewStringValue(existing[0].ID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+				return
+			}
+		}
 		resp.Diagnostics.AddError("Unable to create group", err.Error())
 		return
 	}
@@ -214,16 +201,10 @@ func (r *group) Create(ctx context.Context, req resource.CreateRequest, resp *re
 	if err := groups.EnableOrDisableGroup(created.ID, plan.Enabled.ValueBool()); err != nil {
 		// The group exists; save state first so destroy works, then surface
 		// the partial failure so the user can retry the toggle.
-		refreshCountsFromBackend(&plan, created.ID)
 		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 		resp.Diagnostics.AddError("Group created but failed to set enable state", err.Error())
 		return
 	}
-
-	// Populate Computed count attributes so Terraform doesn't error on
-	// "unknown values after apply". A brand-new group typically has counts
-	// of 0 until discovery runs, but the values must be known regardless.
-	refreshCountsFromBackend(&plan, created.ID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
@@ -238,6 +219,11 @@ func (r *group) Read(ctx context.Context, req resource.ReadRequest, resp *resour
 
 	fetched, err := groups.GetGroupById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error fetching Sedai group",
 			"Could not fetch group with ID "+state.ID.ValueString()+": "+err.Error(),
@@ -292,10 +278,6 @@ func (r *group) Update(ctx context.Context, req resource.UpdateRequest, resp *re
 	}
 
 	plan.ID = state.ID
-
-	// Refresh Computed counts from the backend so plan ↔ state diffs don't
-	// linger as "unknown" after an Update that didn't touch the filters.
-	refreshCountsFromBackend(&plan, plan.ID.ValueString())
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
@@ -391,8 +373,6 @@ func applyDefinitionToModel(ctx context.Context, state *groupModel, fetched *gro
 	state.Regions = stringsToList(def.Region)
 	state.Namespaces = stringsToList(def.Namespace)
 
-	populateCounts(state, fetched)
-
 	if len(def.Tags) == 0 {
 		state.Tags = nil
 		return diags
@@ -426,46 +406,6 @@ func listToStrings(lv basetypes.ListValue) []string {
 }
 
 
-// populateCounts writes the nine named count fields AND the full dynamic
-// resource_counts map onto a groupModel from a groups.GroupDetails. Called
-// from Read (via applyDefinitionToModel) and from Create / Update directly so
-// Computed attributes never stay unknown past an apply.
-func populateCounts(state *groupModel, d *groups.GroupDetails) {
-	c := d.Counts
-	state.LambdaCount = basetypes.NewInt64Value(c.LambdaCount)
-	state.EC2Count = basetypes.NewInt64Value(c.EC2Count)
-	state.ECSCount = basetypes.NewInt64Value(c.ECSCount)
-	state.KubeCount = basetypes.NewInt64Value(c.KubeCount)
-	state.S3Count = basetypes.NewInt64Value(c.S3Count)
-	state.EBSCount = basetypes.NewInt64Value(c.EBSCount)
-	state.AzureVMCount = basetypes.NewInt64Value(c.AzureVMCount)
-	state.AzureLBCount = basetypes.NewInt64Value(c.AzureLBCount)
-	state.StreamingCount = basetypes.NewInt64Value(c.StreamingCount)
-
-	// Full dynamic map. Elements are all Int64 so NewMapValue cannot error
-	// here; the diags are discarded safely.
-	elems := make(map[string]attr.Value, len(d.ResourceCounts))
-	for k, v := range d.ResourceCounts {
-		elems[k] = basetypes.NewInt64Value(v)
-	}
-	m, _ := basetypes.NewMapValue(basetypes.Int64Type{}, elems)
-	state.ResourceCounts = m
-}
-
-// refreshCountsFromBackend fetches the group's current counts and writes
-// them onto state. Used by Create / Update right before saving state so
-// Computed attributes become known. On failure, zeroes out the counts —
-// the group exists, we just couldn't read the snapshot; a subsequent Read
-// will correct.
-func refreshCountsFromBackend(state *groupModel, groupID string) {
-	details, err := groups.GetGroupById(groupID)
-	if err != nil || details == nil {
-		populateCounts(state, &groups.GroupDetails{})
-		return
-	}
-	populateCounts(state, details)
-}
-
 // normalizeResourceTypes maps the user-facing (correct) spelling of
 // KUBERNETES_DAEMONSET to the backend's required (misspelled)
 // KUBERNETES_DEAMONSET on the way out. The requirements doc lists the
@@ -497,12 +437,11 @@ func denormalizeResourceTypes(in []string) []string {
 	return out
 }
 
-// stringsToList converts a []string back into a Terraform ListValue. Nil/empty
-// input becomes a typed null list so Terraform doesn't diff `[]` vs `null`.
+// stringsToList converts a []string back into a Terraform ListValue.
+// Empty/nil input returns an empty list (not null) so that a user writing
+// `namespaces = []` in HCL matches the empty list returned by Read —
+// preventing perpetual `null → []` drift on every plan (BUG-09).
 func stringsToList(values []string) basetypes.ListValue {
-	if len(values) == 0 {
-		return basetypes.NewListNull(types.StringType)
-	}
 	elements := make([]basetypes.StringValue, 0, len(values))
 	for _, v := range values {
 		elements = append(elements, basetypes.NewStringValue(v))

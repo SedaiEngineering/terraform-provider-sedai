@@ -2,12 +2,16 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
@@ -39,10 +43,15 @@ func (r *createBigQueryMonitoringProvider) Schema(_ context.Context, _ resource.
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
-				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Required: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				Required: true,
@@ -50,10 +59,16 @@ func (r *createBigQueryMonitoringProvider) Schema(_ context.Context, _ resource.
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -69,6 +84,12 @@ func (r *createBigQueryMonitoringProvider) Create(ctx context.Context, req resou
 
 	response, err := monitoringProvider.AddBigQueryMonitoringProvider(buildBigQueryRequest(plan))
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "BQMONITORING"); found != nil {
+			addVerifyWarning(resp, "BigQuery monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create BigQuery monitoring provider", err.Error())
 		return
 	}
@@ -89,6 +110,11 @@ func (r *createBigQueryMonitoringProvider) Read(ctx context.Context, req resourc
 
 	fetched, err := monitoringProvider.GetMonitoringProviderById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to read BigQuery monitoring provider", err.Error())
 		return
 	}
@@ -143,8 +169,7 @@ func (r *createBigQueryMonitoringProvider) Delete(ctx context.Context, req resou
 		return
 	}
 
-	deleted, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleted {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete BigQuery monitoring provider", err.Error())
 		return
 	}

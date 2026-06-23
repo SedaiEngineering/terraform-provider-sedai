@@ -4,9 +4,11 @@ import (
 	"context"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
+	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -81,6 +83,8 @@ func (r *groupSettings) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"sedai_sync_enabled": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When true, Sedai auto-syncs the group's resources with the latest configuration. Defaults to false if omitted.",
 			},
 		},
@@ -103,6 +107,11 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 	var plan groupSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
 		return
 	}
 
@@ -168,6 +177,11 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+		return
+	}
+
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to update group settings", err.Error())
 		return
@@ -206,6 +220,134 @@ func (r *groupSettings) ImportState(ctx context.Context, req resource.ImportStat
 	resource.ImportStatePassthroughID(ctx, path.Root("group_id"), req, resp)
 }
 
+// The *FromSDK functions below are full-populate mappers used by data sources.
+// Unlike the *Refresh helpers (which only update managed/non-null fields for
+// resource reads), these map every field from the SDK struct unconditionally —
+// that is the correct semantic for a data source that returns everything.
+
+func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &kubeAppSettingsModel{
+		AvailabilityMode:                   nullableString(s.AvailabilityMode),
+		OptimizationMode:                   nullableString(s.OptimizationMode),
+		OptimizationFocus:                  nullableString(s.OptimizationFocus),
+		SedaiSyncEnabled:                   nullableBool(s.SedaiSyncEnabled),
+		IsProd:                             nullableBool(s.IsProd),
+		IsOperationAllowed:                 nullableBool(s.IsOperationAllowed),
+		HorizontalScalingEnabled:           nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas:       nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas:       nullableInt64(s.HorizontalScalingMaxReplicas),
+		HorizontalScalingReplicaMultiplier: nullableInt64(s.HorizontalScalingReplicaMultiplier),
+		VerticalScalingEnabled:             nullableBool(s.VerticalScalingEnabled),
+		VerticalScalingMinCPUCores:         nullableFloat64(s.VerticalScalingMinCPUCores),
+		VerticalScalingMinMemoryBytes:      nullableInt64(s.VerticalScalingMinMemoryBytes),
+		PredictiveScalingEnabled:           nullableBool(s.PredictiveScalingEnabled),
+		MaxLatencyIncreasePct:              nullableInt64(s.MaxLatencyIncreasePct),
+		MaxCPUIncreasePct:                  nullableInt64(s.MaxCPUIncreasePct),
+		MaxMemoryIncreasePct:               nullableInt64(s.MaxMemoryIncreasePct),
+	}
+}
+
+func bucketSettingsFromSDK(s *sdksettings.BucketSettings) *bucketSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &bucketSettingsModel{
+		OptimizationMode: nullableString(s.OptimizationMode),
+		SedaiSyncEnabled: nullableBool(s.SedaiSyncEnabled),
+	}
+}
+
+func appSettingsFromSDK(s *sdksettings.AppSettings) *appSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &appSettingsModel{
+		AvailabilityMode:             nullableString(s.AvailabilityMode),
+		OptimizationMode:             nullableString(s.OptimizationMode),
+		IsProd:                       nullableBool(s.IsProd),
+		SedaiSyncEnabled:             nullableBool(s.SedaiSyncEnabled),
+		HorizontalScalingEnabled:     nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas: nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas: nullableInt64(s.HorizontalScalingMaxReplicas),
+	}
+}
+
+func containerAppSettingsFromSDK(s *sdksettings.ContainerAppSettings) *containerAppSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &containerAppSettingsModel{
+		AvailabilityMode:               nullableString(s.AvailabilityMode),
+		OptimizationMode:               nullableString(s.OptimizationMode),
+		IsProd:                         nullableBool(s.IsProd),
+		SedaiSyncEnabled:               nullableBool(s.SedaiSyncEnabled),
+		HorizontalScalingEnabled:       nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas:   nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas:   nullableInt64(s.HorizontalScalingMaxReplicas),
+		VerticalScalingEnabled:         nullableBool(s.VerticalScalingEnabled),
+		PredictiveScalingEnabled:       nullableBool(s.PredictiveScalingEnabled),
+		OptimizationFocus:              nullableString(s.OptimizationFocus),
+		MaxLatencyIncreasePct:          nullableInt64(s.MaxLatencyIncreasePct),
+		MaxCPUIncreasePct:              nullableInt64(s.MaxCPUIncreasePct),
+		MaxMemoryIncreasePct:           nullableInt64(s.MaxMemoryIncreasePct),
+		AutonomousActionWithoutTraffic: nullableBool(s.AutonomousActionWithoutTraffic),
+	}
+}
+
+func ecsAppSettingsFromSDK(s *sdksettings.ECSAppSettings) *ecsAppSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &ecsAppSettingsModel{
+		AvailabilityMode:                  nullableString(s.AvailabilityMode),
+		OptimizationMode:                  nullableString(s.OptimizationMode),
+		IsProd:                            nullableBool(s.IsProd),
+		SedaiSyncEnabled:                  nullableBool(s.SedaiSyncEnabled),
+		HorizontalScalingEnabled:          nullableBool(s.HorizontalScalingEnabled),
+		HorizontalScalingMinReplicas:      nullableInt64(s.HorizontalScalingMinReplicas),
+		HorizontalScalingMaxReplicas:      nullableInt64(s.HorizontalScalingMaxReplicas),
+		VerticalScalingEnabled:            nullableBool(s.VerticalScalingEnabled),
+		PredictiveScalingEnabled:          nullableBool(s.PredictiveScalingEnabled),
+		OptimizationFocus:                 nullableString(s.OptimizationFocus),
+		MaxLatencyIncreasePct:             nullableInt64(s.MaxLatencyIncreasePct),
+		MaxCPUIncreasePct:                 nullableInt64(s.MaxCPUIncreasePct),
+		MaxMemoryIncreasePct:              nullableInt64(s.MaxMemoryIncreasePct),
+		ServiceAutoscalingEnabled:         nullableBool(s.ServiceAutoscalingEnabled),
+		HorizontalScalingReplicaIncrement: nullableInt64(s.HorizontalScalingReplicaIncrement),
+		VerticalScalingMinCPU:             nullableInt64(s.VerticalScalingMinCPU),
+		VerticalScalingMinMemory:          nullableInt64(s.VerticalScalingMinMemory),
+	}
+}
+
+func serverlessSettingsFromSDK(s *sdksettings.ServerlessSettings) *serverlessSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &serverlessSettingsModel{
+		AvailabilityMode:    nullableString(s.AvailabilityMode),
+		OptimizationMode:    nullableString(s.OptimizationMode),
+		OptimizationFocus:   nullableString(s.OptimizationFocus),
+		ConcurrencyMode:     nullableString(s.ConcurrencyMode),
+		MaxCostChangePct:    nullableInt64(s.MaxCostChangePct),
+		MaxLatencyChangePct: nullableInt64(s.MaxLatencyChangePct),
+		SedaiSyncEnabled:    nullableBool(s.SedaiSyncEnabled),
+	}
+}
+
+func volumeSettingsFromSDK(s *sdksettings.VolumeSettings) *volumeSettingsModel {
+	if s == nil {
+		return nil
+	}
+	return &volumeSettingsModel{
+		AvailabilityMode: nullableString(s.AvailabilityMode),
+		OptimizationMode: nullableString(s.OptimizationMode),
+		SedaiSyncEnabled: nullableBool(s.SedaiSyncEnabled),
+	}
+}
+
 func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSettings {
 	return &groups.GroupSettings{
 		AvailabilityMode:     p.AvailabilityMode.ValueString(),
@@ -219,4 +361,52 @@ func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSet
 		ServerlessSettings:   serverlessSettingsToSDK(p.ServerlessSettings),
 		VolumeSettings:       volumeSettingsToSDK(p.VolumeSettings),
 	}
+}
+
+// validateTopLevelModeConflicts checks that the top-level availability/optimization
+// modes are compatible with any per-type blocks the user is managing. The SDK fans
+// the top-level mode into every section — if a section does not support a mode, writing
+// it causes silent undefined behavior or perpetual drift. Returns "" when valid.
+//
+// Rules (per spec and provider validators):
+//   - app_settings, bucket_settings, volume_settings: no AUTO for either mode
+//   - bucket_settings: no availability_mode at all (backend ignores it)
+//   - volume_settings: no AUTO for either mode
+//   - serverless_settings: no CO_PILOT for optimization_mode
+func validateTopLevelModeConflicts(availMode, optMode string,
+	appSettings *appSettingsModel,
+	bucketSettings *bucketSettingsModel,
+	volumeSettings *volumeSettingsModel,
+	serverlessSettings *serverlessSettingsModel,
+) string {
+	if appSettings != nil {
+		if availMode == "AUTO" {
+			return "availability_mode = AUTO cannot be combined with an app_settings block. " +
+				"The app type does not support AUTO. Use DATA_PILOT or CO_PILOT at the top level, " +
+				"or set app_settings.availability_mode separately."
+		}
+		if optMode == "AUTO" {
+			return "optimization_mode = AUTO cannot be combined with an app_settings block. " +
+				"The app type does not support AUTO."
+		}
+	}
+	if bucketSettings != nil && optMode == "AUTO" {
+		return "optimization_mode = AUTO cannot be combined with a bucket_settings block. " +
+			"S3 buckets do not support AUTO — use DATA_PILOT or CO_PILOT."
+	}
+	if volumeSettings != nil {
+		if availMode == "AUTO" {
+			return "availability_mode = AUTO cannot be combined with a volume_settings block. " +
+				"EBS volumes do not support AUTO — use DATA_PILOT or CO_PILOT."
+		}
+		if optMode == "AUTO" {
+			return "optimization_mode = AUTO cannot be combined with a volume_settings block. " +
+				"EBS volumes do not support AUTO — use DATA_PILOT or CO_PILOT."
+		}
+	}
+	if serverlessSettings != nil && optMode == "CO_PILOT" {
+		return "optimization_mode = CO_PILOT cannot be combined with a serverless_settings block. " +
+			"Lambda functions do not support CO_PILOT — use DATA_PILOT or AUTO."
+	}
+	return ""
 }

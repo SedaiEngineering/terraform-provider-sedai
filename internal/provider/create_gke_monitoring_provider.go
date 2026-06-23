@@ -2,13 +2,17 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -52,12 +56,17 @@ func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.Schem
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
-				Optional:    true,
 				Description: "Monitoring provider ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Required:    true,
 				Description: "Sedai account ID to associate this monitoring provider with.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"project_id": schema.StringAttribute{
 				Required:    true,
@@ -67,11 +76,17 @@ func (r *createGkeMonitoringProvider) Schema(_ context.Context, _ resource.Schem
 				Computed:    true,
 				Optional:    true,
 				Description: "Monitoring provider name (populated by Sedai).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed:    true,
 				Optional:    true,
 				Description: "Integration type (populated from the account).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,
@@ -136,6 +151,12 @@ func (r *createGkeMonitoringProvider) Create(ctx context.Context, req resource.C
 	monitoringProviderRequest := createGkeMonitoringProviderRequest(plan)
 	response, err := monitoringProvider.AddGKEMonitoring(monitoringProviderRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "GKEMONITORING"); found != nil {
+			addVerifyWarning(resp, "GKE monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create monitoring provider", err.Error())
 		return
 	}
@@ -170,6 +191,11 @@ func (r *createGkeMonitoringProvider) Read(ctx context.Context, req resource.Rea
 
 	fetchedMonitoringProvider, err := monitoringProvider.GetMonitoringProviderById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to read monitoring provider", err.Error())
 		return
 	}
@@ -258,8 +284,7 @@ func (r *createGkeMonitoringProvider) Delete(ctx context.Context, req resource.D
 		return
 	}
 
-	deleteMonitoringProvider, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleteMonitoringProvider {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete monitoring provider", err.Error())
 		return
 	}
@@ -290,25 +315,25 @@ func createGkeMonitoringProviderRequest(plan gkeMonitoringProviderModel) monitor
 	if plan.IntegrationType.String() != "" {
 		createGkeMonitoringProviderRequest.IntegrationType = plan.IntegrationType.ValueString()
 	}
-	if plan.LbDimensions.IsNull() {
+	if !plan.LbDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.LbDimensions = convertFromBaseTypes(plan.LbDimensions)
 	}
-	if plan.AppDimensions.IsNull() {
+	if !plan.AppDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.AppDimensions = convertFromBaseTypes(plan.AppDimensions)
 	}
-	if plan.InstanceDimensions.IsNull() {
+	if !plan.InstanceDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.InstanceDimensions = convertFromBaseTypes(plan.InstanceDimensions)
 	}
-	if plan.RegionDimensions.IsNull() {
+	if !plan.RegionDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.RegionDimensions = convertFromBaseTypes(plan.RegionDimensions)
 	}
-	if plan.ContainerDimensions.IsNull() {
+	if !plan.ContainerDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.ContainerDimensions = convertFromBaseTypes(plan.ContainerDimensions)
 	}
-	if plan.NamespaceDimensions.IsNull() {
+	if !plan.NamespaceDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.NamespaceDimensions = convertFromBaseTypes(plan.NamespaceDimensions)
 	}
-	if plan.ClusterDimensions.IsNull() {
+	if !plan.ClusterDimensions.IsNull() {
 		createGkeMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
 	}
 

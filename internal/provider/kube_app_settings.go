@@ -30,7 +30,6 @@ type kubeAppSettingsModel struct {
 	VerticalScalingMinCPUCores         basetypes.Float64Value `tfsdk:"vertical_scaling_min_cpu_cores"`
 	VerticalScalingMinMemoryBytes      basetypes.Int64Value   `tfsdk:"vertical_scaling_min_memory_bytes"`
 	PredictiveScalingEnabled           basetypes.BoolValue    `tfsdk:"predictive_scaling_enabled"`
-	AutonomousActionWithoutTraffic     basetypes.BoolValue    `tfsdk:"autonomous_action_without_traffic"`
 	MaxLatencyIncreasePct              basetypes.Int64Value   `tfsdk:"max_latency_increase_pct"`
 	MaxCPUIncreasePct                  basetypes.Int64Value   `tfsdk:"max_cpu_increase_pct"`
 	MaxMemoryIncreasePct               basetypes.Int64Value   `tfsdk:"max_memory_increase_pct"`
@@ -106,10 +105,6 @@ func kubeAppSettingsBlock() schema.SingleNestedBlock {
 				Optional:    true,
 				Description: "Enable predictive scaling based on detected seasonality.",
 			},
-			"autonomous_action_without_traffic": schema.BoolAttribute{
-				Optional:    true,
-				Description: "Allow Sedai to optimize even without recent traffic data.",
-			},
 			"max_latency_increase_pct": schema.Int64Attribute{
 				Optional:    true,
 				Description: "Guardrail: maximum acceptable latency increase % during optimization.",
@@ -150,7 +145,6 @@ func kubeAppSettingsToSDK(m *kubeAppSettingsModel) *sdksettings.KubeAppSettings 
 		VerticalScalingMinCPUCores:         float64Ptr(m.VerticalScalingMinCPUCores),
 		VerticalScalingMinMemoryBytes:      int64Ptr(m.VerticalScalingMinMemoryBytes),
 		PredictiveScalingEnabled:           boolPtr(m.PredictiveScalingEnabled),
-		AutonomousActionWithoutTraffic:     boolPtr(m.AutonomousActionWithoutTraffic),
 		MaxLatencyIncreasePct:              int64Ptr(m.MaxLatencyIncreasePct),
 		MaxCPUIncreasePct:                  int64Ptr(m.MaxCPUIncreasePct),
 		MaxMemoryIncreasePct:               int64Ptr(m.MaxMemoryIncreasePct),
@@ -181,7 +175,6 @@ func kubeAppSettingsRefresh(state *kubeAppSettingsModel, fetched *sdksettings.Ku
 	refreshFloat64IfManaged(&state.VerticalScalingMinCPUCores, fetched.VerticalScalingMinCPUCores)
 	refreshInt64IfManaged(&state.VerticalScalingMinMemoryBytes, fetched.VerticalScalingMinMemoryBytes)
 	refreshBoolIfManaged(&state.PredictiveScalingEnabled, fetched.PredictiveScalingEnabled)
-	refreshBoolIfManaged(&state.AutonomousActionWithoutTraffic, fetched.AutonomousActionWithoutTraffic)
 	refreshInt64IfManaged(&state.MaxLatencyIncreasePct, fetched.MaxLatencyIncreasePct)
 	refreshInt64IfManaged(&state.MaxCPUIncreasePct, fetched.MaxCPUIncreasePct)
 	refreshInt64IfManaged(&state.MaxMemoryIncreasePct, fetched.MaxMemoryIncreasePct)

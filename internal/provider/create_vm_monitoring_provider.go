@@ -2,12 +2,18 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -34,11 +40,16 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed: true,
-				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Computed: false,
 				Required: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"endpoint": schema.StringAttribute{
 				Computed: false,
@@ -47,10 +58,16 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"lb_dimensions": schema.ListAttribute{
 				Computed:    true,
@@ -117,8 +134,16 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 			// 	Optional: true,
 			// },
 			"bearer_token": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Computed:  false,
+				Optional:  true,
+				Sensitive: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("token_endpoint"),
+						path.MatchRoot("client_id"),
+						path.MatchRoot("client_secret"),
+					),
+				},
 			},
 			"token_endpoint": schema.StringAttribute{
 				Computed: false,
@@ -127,10 +152,17 @@ func (r *createVmMonitoringProvider) Schema(_ context.Context, _ resource.Schema
 			"client_id": schema.StringAttribute{
 				Computed: false,
 				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("bearer_token")),
+				},
 			},
 			"client_secret": schema.StringAttribute{
-				Computed: false,
-				Optional: true,
+				Computed:  false,
+				Optional:  true,
+				Sensitive: true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("bearer_token")),
+				},
 			},
 		},
 	}
@@ -148,6 +180,12 @@ func (r *createVmMonitoringProvider) Create(ctx context.Context, req resource.Cr
 	monitoringProviderRequest := createFpMonitoringProviderRequest(plan)
 	response, err := monitoringProvider.AddVictoriaMetricsMonitoring(monitoringProviderRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "VICTORIAMETRICS"); found != nil {
+			addVerifyWarning(resp, "Victoria Metrics monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create monitoring provider", err.Error())
 		return
 	}
@@ -187,6 +225,11 @@ func (r *createVmMonitoringProvider) Read(ctx context.Context, req resource.Read
 
 	response, err := monitoringProvider.GetMonitoringProviderById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to read monitoring provider", err.Error())
 		return
 	}
@@ -285,8 +328,7 @@ func (r *createVmMonitoringProvider) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	deleteMonitoringProvider, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleteMonitoringProvider {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete monitoring provider", err.Error())
 		return
 	}

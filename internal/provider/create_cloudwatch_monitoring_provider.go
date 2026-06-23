@@ -2,13 +2,20 @@ package provider
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
-	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework-validators/boolvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -50,38 +57,63 @@ func (r *createCloudWatchMonitoringProvider) Schema(_ context.Context, _ resourc
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
-				Optional:    true,
 				Description: "Monitoring provider ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_id": schema.StringAttribute{
 				Required:    true,
 				Description: "Sedai account ID to associate this monitoring provider with.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Computed:    true,
 				Optional:    true,
 				Description: "Monitoring provider name (populated by Sedai).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Computed:    true,
 				Optional:    true,
 				Description: "Integration type (populated from the account).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"use_account_credentials": schema.BoolAttribute{
 				Computed:    true,
 				Optional:    true,
 				Default:     booldefault.StaticBool(true),
 				Description: "Use the AWS credentials from the account. Defaults to true. Set to false to provide an explicit role or access key.",
+				Validators: []validator.Bool{
+					boolvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+					),
+				},
 			},
 			"access_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "AWS access key. Used when `use_account_credentials = false`.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("secret_key")),
+					stringvalidator.ConflictsWith(path.MatchRoot("use_account_credentials")),
+				},
 			},
 			"secret_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "AWS secret key. Used when `use_account_credentials = false`.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("access_key")),
+					stringvalidator.ConflictsWith(path.MatchRoot("use_account_credentials")),
+				},
 			},
 			"role": schema.StringAttribute{
 				Optional:    true,
@@ -124,6 +156,12 @@ func (r *createCloudWatchMonitoringProvider) Create(ctx context.Context, req res
 	mpRequest := buildCloudWatchRequest(plan)
 	response, err := monitoringProvider.AddCloudWatchMonitoringProvider(mpRequest)
 	if err != nil {
+		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "CLOUDWATCH"); found != nil {
+			addVerifyWarning(resp, "CloudWatch monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+			plan.ID = basetypes.NewStringValue(found["id"].(string))
+			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to create CloudWatch monitoring provider", err.Error())
 		return
 	}
@@ -150,6 +188,11 @@ func (r *createCloudWatchMonitoringProvider) Read(ctx context.Context, req resou
 
 	fetched, err := monitoringProvider.GetMonitoringProviderById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to read CloudWatch monitoring provider", err.Error())
 		return
 	}
@@ -217,8 +260,7 @@ func (r *createCloudWatchMonitoringProvider) Delete(ctx context.Context, req res
 		return
 	}
 
-	deleted, err := monitoringProvider.DeleteMonitoringProvider(state.ID.ValueString())
-	if err != nil || !deleted {
+	if err := deleteMPGracefully(state.ID.ValueString()); err != nil {
 		resp.Diagnostics.AddError("Unable to delete CloudWatch monitoring provider", err.Error())
 		return
 	}

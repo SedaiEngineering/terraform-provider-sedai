@@ -27,8 +27,8 @@ resource "sedai_datadog_monitoring_provider" "datadog_mp" {
 ### Required
 
 - `account_id` (String)
-- `api_key` (String)
-- `application_key` (String)
+- `api_key` (String, Sensitive)
+- `application_key` (String, Sensitive)
 
 ### Optional
 

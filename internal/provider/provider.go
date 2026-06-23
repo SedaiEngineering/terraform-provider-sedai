@@ -65,6 +65,10 @@ func (p *sedaiProvider) DataSources(_ context.Context) []func() datasource.DataS
 		DataSourceGroup,
 		DataSourceGroups,
 		DataSourceAccount,
+		DataSourceGroupSettings,
+		DataSourceAccountSettings,
+		DataSourceResourceSettings,
+		DataSourceGroupPriority,
 	}
 }
 

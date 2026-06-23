@@ -1,5 +1,7 @@
 github.com/SedaiEngineering/sedai-sdk-go v1.2.0 h1:bs/bMPG4kLAUM6fZV7xXpJ3V3uQxnC4UiGHu364CVUk=
 github.com/SedaiEngineering/sedai-sdk-go v1.2.0/go.mod h1:gj6Ogb4X1WZw5ha/QDkY3Mz80/u+uxDgCW8tGb8RX+4=
+github.com/SedaiEngineering/sedai-sdk-go v1.3.0 h1:I8AE8jPtfVILn/YpCu9CAVBaYimfEgbUs2Ed5NsJvMY=
+github.com/SedaiEngineering/sedai-sdk-go v1.3.0/go.mod h1:gj6Ogb4X1WZw5ha/QDkY3Mz80/u+uxDgCW8tGb8RX+4=
 github.com/bufbuild/protocompile v0.14.1 h1:iA73zAf/fyljNjQKwYzUHD6AD4R8KMasmwa/FBatYVw=
 github.com/bufbuild/protocompile v0.14.1/go.mod h1:ppVdAIhbr2H8asPk6k4pY7t9zB1OU5DoEw9xY/FUi1c=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=

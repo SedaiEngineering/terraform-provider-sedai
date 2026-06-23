@@ -122,3 +122,31 @@ func concurrencyModeValidator() validator.String {
 	}
 	return stringvalidator.OneOf(out...)
 }
+
+// cloudProviderValidator rejects cloud_provider values not in validCloudProviders.
+func cloudProviderValidator() validator.String {
+	return stringvalidator.OneOf(validCloudProviders...)
+}
+
+// integrationTypeValidator rejects integration_type values not in validIntegrationTypes.
+func integrationTypeValidator() validator.String {
+	return stringvalidator.OneOf(validIntegrationTypes...)
+}
+
+// clusterProviderValidator rejects cluster_provider values not in validClusterProviders.
+func clusterProviderValidator() validator.String {
+	return stringvalidator.OneOf(validClusterProviders...)
+}
+
+// managedServicesValidator rejects any list element not in the union of all
+// cloud managed-service values. Cross-cloud validation (e.g. AWS-only values
+// rejected for an Azure account) is deferred to ticket 11 cross-field validators.
+func managedServicesValidator() validator.List {
+	all := make([]string, 0)
+	for _, services := range constants.SupportedManagedServices {
+		for _, s := range services {
+			all = append(all, string(s))
+		}
+	}
+	return listvalidator.ValueStringsAre(stringvalidator.OneOf(all...))
+}

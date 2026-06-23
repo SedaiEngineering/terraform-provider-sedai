@@ -51,7 +51,6 @@ resource "sedai_gke_monitoring_provider" "gcp" {
 - `app_dimensions` (List of String) Application dimension filters.
 - `cluster_dimensions` (List of String) Cluster dimension filters.
 - `container_dimensions` (List of String) Container dimension filters.
-- `id` (String) Monitoring provider ID.
 - `instance_dimensions` (List of String) Instance dimension filters.
 - `integration_type` (String) Integration type (populated from the account).
 - `lb_dimensions` (List of String) Load balancer dimension filters.
@@ -59,5 +58,9 @@ resource "sedai_gke_monitoring_provider" "gcp" {
 - `namespace_dimensions` (List of String) Namespace dimension filters.
 - `region_dimensions` (List of String) Region dimension filters.
 - `service_account_json` (String, Sensitive) GCP service account JSON key with Monitoring Viewer permissions.
+
+### Read-Only
+
+- `id` (String) Monitoring provider ID.
 
 

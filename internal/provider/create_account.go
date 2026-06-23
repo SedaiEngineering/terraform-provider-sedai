@@ -2,13 +2,20 @@ package provider
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"time"
+
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/credentials"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -80,14 +87,23 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"cloud_provider": schema.StringAttribute{
 				Required:    true,
 				Description: "Cloud provider. Valid values: `AWS`, `AZURE`, `GCP`, `KUBERNETES`.",
+				Validators:  []validator.String{cloudProviderValidator()},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"integration_type": schema.StringAttribute{
 				Required:    true,
 				Description: "Integration type. Valid values: `AGENTLESS`, `AGENT_BASED`.",
+				Validators:  []validator.String{integrationTypeValidator()},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"cluster_provider": schema.StringAttribute{
 				Optional:    true,
 				Description: "Kubernetes cluster provider. Required when `cloud_provider = \"KUBERNETES\"`. Valid values: `AWS`, `GCP`, `AZURE`, `SELF_MANAGED`.",
+				Validators:  []validator.String{clusterProviderValidator()},
 			},
 			"cluster_url": schema.StringAttribute{
 				Optional:    true,
@@ -113,6 +129,13 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Optional:    true,
 				Sensitive:   true,
 				Description: "GCP service account JSON key. Required for GCP and Kubernetes GCP accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("role"),
+					),
+				},
 			},
 			"ca_certificate": schema.StringAttribute{
 				Optional:    true,
@@ -120,20 +143,43 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"role": schema.StringAttribute{
 				Optional:    true,
-				Description: "IAM role ARN for role-based authentication (AWS / Kubernetes AWS).",
+				Description: "IAM role ARN for role-based authentication (AWS / Kubernetes AWS). Changing this forces a new resource — the ARN encodes the AWS account ID, so a different ARN means a different AWS account.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"external_id": schema.StringAttribute{
 				Optional:    true,
-				Description: "External ID for the IAM role (AWS / Kubernetes AWS).",
+				Description: "External ID for the IAM role (AWS / Kubernetes AWS). Changing this forces a new resource.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("role")),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"access_key": schema.StringAttribute{
 				Optional:    true,
 				Description: "AWS access key for static credential authentication.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("secret_key")),
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("tenant_id"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"secret_key": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "AWS secret key for static credential authentication.",
+				Validators: []validator.String{
+					stringvalidator.AlsoRequires(path.MatchRoot("access_key")),
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("tenant_id"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"agent_api_key": schema.StringAttribute{
 				Computed:    true,
@@ -154,24 +200,54 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"tenant_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Azure Active Directory tenant ID. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("role"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"subscription_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Azure subscription ID. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"client_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Azure service principal client ID. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"client_secret": schema.StringAttribute{
 				Optional:    true,
 				Sensitive:   true,
 				Description: "Azure service principal client secret. Required for Azure accounts.",
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(
+						path.MatchRoot("access_key"),
+						path.MatchRoot("secret_key"),
+						path.MatchRoot("service_account_json"),
+					),
+				},
 			},
 			"user_selected_managed_services": schema.ListAttribute{
 				Optional:    true,
 				ElementType: types.StringType,
 				Description: "Cloud services to enable. AWS values: `LAMBDA`, `EC2`, `ECS`, `EBS`, `EFS`, `S3`, `RDS`, `DYNAMO_DB`, `DATABRICKS`. Azure values: `VM`, `AZURE_DISK`, `AZURE_BLOB`, `DATABRICKS`. GCP values: `GCE`, `DATAFLOW`, `GCP_DISK`, `CLOUD_STORAGE`, `BIG_QUERY`, `DATABRICKS`.",
+				Validators:  []validator.List{managedServicesValidator()},
 			},
 		},
 	}
@@ -189,7 +265,42 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 	createAccountRequest := createAccountRequest(plan)
 	response, err := account.CreateAccount(createAccountRequest)
 	if err != nil {
+		// POST failed — verify if the backend created it anyway.
+		// Handles EOF-during-POST where the server processed the request but the
+		// response was lost in transit. See LIMITATIONS.md for known edge cases.
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, searchErr := account.SearchAccountsByName(plan.Name.ValueString())
+			if searchErr == nil && len(existing) > 0 {
+				resp.Diagnostics.AddWarning(
+					"Account created despite connection error",
+					"Account '"+plan.Name.ValueString()+"' was found on the backend after a failed POST — "+
+						"the response was likely lost in transit. Using existing ID: "+existing[0].ID,
+				)
+				plan.ID = basetypes.NewStringValue(existing[0].ID)
+				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+				return
+			}
+		}
 		resp.Diagnostics.AddError("Unable to create account", err.Error())
+		return
+	}
+
+	// Write the ID to state immediately — before any post-create work.
+	// If anything below fails, the account exists on the backend and Terraform
+	// knows its ID, so the next apply will Update rather than Create again.
+	accountId, ok := safeMapString(response, "accountId")
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected response from backend",
+			"Account was created but the response did not include an account ID. "+
+				"Check the Sedai backend logs for details.",
+		)
+		return
+	}
+	plan.ID = basetypes.NewStringValue(accountId)
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -199,14 +310,18 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
 			return
 		}
-		plan.AgentApiKey = basetypes.NewStringValue(agentInstallationCommand["apiKey"].(string))
-		plan.KubeInstallCmd = basetypes.NewStringValue(agentInstallationCommand["kubeInstallCmd"].(string))
-		plan.HelmInstallCmd = basetypes.NewStringValue(agentInstallationCommand["helmInstallCmd"].(string))
-		if agentInstallationCommand["createSecretKubectlCmd"] != nil {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
-		} else {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		if agentInstallationCommand == nil {
+			resp.Diagnostics.AddError("Unable to get agent installation command", "Backend returned empty response")
+			return
 		}
+		apiKey, _ := safeMapString(agentInstallationCommand, "apiKey")
+		kubeCmd, _ := safeMapString(agentInstallationCommand, "kubeInstallCmd")
+		helmCmd, _ := safeMapString(agentInstallationCommand, "helmInstallCmd")
+		secretCmd, _ := safeMapString(agentInstallationCommand, "createSecretKubectlCmd")
+		plan.AgentApiKey = basetypes.NewStringValue(apiKey)
+		plan.KubeInstallCmd = basetypes.NewStringValue(kubeCmd)
+		plan.HelmInstallCmd = basetypes.NewStringValue(helmCmd)
+		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(secretCmd)
 	} else {
 		plan.AgentApiKey = basetypes.NewStringValue("")
 		plan.KubeInstallCmd = basetypes.NewStringValue("")
@@ -214,12 +329,23 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
 	}
 
-	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
-
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Poll until the account is queryable on the backend before returning.
+	// The Sedai API is async — returning immediately lets dependent resources
+	// (MPs, groups) fire before the account is ready, causing race conditions.
+	// Soft timeout: proceed after 30s regardless so a slow backend doesn't block forever.
+	accountId = plan.ID.ValueString()
+	for i := 0; i < 15; i++ {
+		fetched, err := account.SearchAccountsById(accountId)
+		if err == nil && fetched != nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
 	}
 }
 
@@ -235,17 +361,57 @@ func (r *createAccount) Read(ctx context.Context, req resource.ReadRequest, resp
 
 	fetchedAccount, err := account.SearchAccountsById(state.ID.ValueString())
 	if err != nil {
+		var notFound *impl.NotFoundError
+		if errors.As(err, &notFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error fetching sedai account",
 			"Could not fetch account with ID "+state.ID.ValueString()+": "+err.Error(),
 		)
 		return
 	}
+	if fetchedAccount == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
 
-	state.ID = basetypes.NewStringValue(fetchedAccount.ID)
-	state.Name = basetypes.NewStringValue(fetchedAccount.Name)
+	state.ID            = basetypes.NewStringValue(fetchedAccount.ID)
+	state.Name          = basetypes.NewStringValue(fetchedAccount.Name)
 	state.CloudProvider = basetypes.NewStringValue(fetchedAccount.AccountDetails.CloudProvider)
 	state.IntegrationType = basetypes.NewStringValue(fetchedAccount.AccountDetails.IntegrationType)
+
+	// Refresh cloud-specific non-secret fields.
+	// Write-only fields (role, access_key, secret_key, client_secret,
+	// service_account_json, external_id, client_id) are not returned by the
+	// backend GET — preserve prior state values for those.
+	if fetchedAccount.AccountDetails.SubscriptionId != "" {
+		state.SubscriptionId = basetypes.NewStringValue(fetchedAccount.AccountDetails.SubscriptionId)
+	}
+	if fetchedAccount.AccountDetails.TenantId != "" {
+		state.TenantId = basetypes.NewStringValue(fetchedAccount.AccountDetails.TenantId)
+	}
+	if fetchedAccount.AccountDetails.ProjectId != "" {
+		state.ProjectId = basetypes.NewStringValue(fetchedAccount.AccountDetails.ProjectId)
+	}
+	if fetchedAccount.AccountDetails.Metadata != nil {
+		if fetchedAccount.AccountDetails.Metadata.ClusterProvider != "" {
+			state.ClusterProvider = basetypes.NewStringValue(fetchedAccount.AccountDetails.Metadata.ClusterProvider)
+		}
+		if fetchedAccount.AccountDetails.Metadata.ClusterUrl != "" {
+			state.ClusterURL = basetypes.NewStringValue(fetchedAccount.AccountDetails.Metadata.ClusterUrl)
+		}
+		if fetchedAccount.AccountDetails.Metadata.CaCertData != "" {
+			state.CACertificate = basetypes.NewStringValue(fetchedAccount.AccountDetails.Metadata.CaCertData)
+		}
+	}
+	if len(fetchedAccount.AccountDetails.UserSelectedManagedServices) > 0 {
+		svcs, diagSvcs := types.ListValueFrom(ctx, types.StringType, fetchedAccount.AccountDetails.UserSelectedManagedServices)
+		if !diagSvcs.HasError() {
+			state.UserSelectedManagedServices = svcs
+		}
+	}
 
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
@@ -279,14 +445,18 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
 			return
 		}
-		plan.AgentApiKey = basetypes.NewStringValue(agentInstallationCommand["apiKey"].(string))
-		plan.KubeInstallCmd = basetypes.NewStringValue(agentInstallationCommand["kubeInstallCmd"].(string))
-		plan.HelmInstallCmd = basetypes.NewStringValue(agentInstallationCommand["helmInstallCmd"].(string))
-		if agentInstallationCommand["createSecretKubectlCmd"] != nil {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
-		} else {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		if agentInstallationCommand == nil {
+			resp.Diagnostics.AddError("Unable to get agent installation command", "Backend returned empty response")
+			return
 		}
+		apiKey, _ := safeMapString(agentInstallationCommand, "apiKey")
+		kubeCmd, _ := safeMapString(agentInstallationCommand, "kubeInstallCmd")
+		helmCmd, _ := safeMapString(agentInstallationCommand, "helmInstallCmd")
+		secretCmd, _ := safeMapString(agentInstallationCommand, "createSecretKubectlCmd")
+		plan.AgentApiKey = basetypes.NewStringValue(apiKey)
+		plan.KubeInstallCmd = basetypes.NewStringValue(kubeCmd)
+		plan.HelmInstallCmd = basetypes.NewStringValue(helmCmd)
+		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(secretCmd)
 	} else {
 		plan.AgentApiKey = basetypes.NewStringValue("")
 		plan.KubeInstallCmd = basetypes.NewStringValue("")
@@ -294,7 +464,15 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
 	}
 
-	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
+	updatedAccountId, ok := safeMapString(response, "accountId")
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected response from backend",
+			"Account update response did not include an account ID.",
+		)
+		return
+	}
+	plan.ID = basetypes.NewStringValue(updatedAccountId)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
@@ -315,7 +493,13 @@ func (r *createAccount) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	_, err := account.DeleteAccount(state.Name.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to delete account", err.Error())
+		// If the account no longer exists on the backend (backend NPE on null account,
+		// or explicit not-found), treat delete as success — desired state is achieved.
+		msg := err.Error()
+		if strings.Contains(msg, "null") || strings.Contains(msg, "not found") || strings.Contains(msg, "404") {
+			return
+		}
+		resp.Diagnostics.AddError("Unable to delete account", msg)
 		return
 	}
 }

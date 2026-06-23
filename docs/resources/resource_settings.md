@@ -14,12 +14,12 @@ Manages the top-level settings for a single Sedai resource — the most-specific
 
 ### Required
 
+- `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. Per-resource-type validity rules (e.g. buckets cannot be AUTO) apply at apply-time.
+- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. Per-resource-type validity rules apply at apply-time.
 - `resource_id` (String) The Sedai resource ID. Often a slash-delimited path like `abc123/Deployment/prod-cluster/payments/payment-api`.
 
 ### Optional
 
-- `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. Per-resource-type validity rules (e.g. buckets cannot be AUTO) apply at apply-time.
-- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. Per-resource-type validity rules apply at apply-time.
 - `sedai_sync_enabled` (Boolean) When true, Sedai auto-syncs this resource with the latest cloud-side configuration. Defaults to false if omitted.
 
 ### Read-Only

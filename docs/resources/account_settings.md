@@ -78,7 +78,6 @@ Optional:
 
 Optional:
 
-- `autonomous_action_without_traffic` (Boolean) Allow Sedai to act even without recent traffic data.
 - `availability_mode` (String) How Sedai manages availability.
 - `horizontal_scaling_enabled` (Boolean) Enable horizontal scaling (replica count tuning).
 - `horizontal_scaling_max_replicas` (Number) Ceiling for replica count when horizontal scaling is enabled.
@@ -103,7 +102,6 @@ Optional:
 
 Optional:
 
-- `autonomous_action_without_traffic` (Boolean) Allow Sedai to optimize even without recent traffic data.
 - `availability_mode` (String) Override availability mode for Kubernetes workloads. Valid: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 - `horizontal_scaling_enabled` (Boolean) Enable horizontal scaling (replica count tuning) for Kubernetes workloads.
 - `horizontal_scaling_max_replicas` (Number) Ceiling for replica count when horizontal scaling is enabled.
