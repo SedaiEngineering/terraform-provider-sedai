@@ -7,6 +7,21 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
+// safeMapString safely extracts a string value from a map[string]interface{}.
+// Returns ("", false) if the key is missing or the value is not a non-empty string,
+// instead of panicking on a nil or wrong-type assertion.
+func safeMapString(m map[string]interface{}, key string) (string, bool) {
+	if m == nil {
+		return "", false
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok && s != ""
+}
+
 // deleteMPGracefully deletes a monitoring provider and handles the case where
 // the backend returns an error from a non-fatal cleanup step (e.g. exporter
 // deregistration failure). If the delete call errors but the provider no longer

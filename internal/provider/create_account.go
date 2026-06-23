@@ -289,7 +289,16 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 	// Write the ID to state immediately — before any post-create work.
 	// If anything below fails, the account exists on the backend and Terraform
 	// knows its ID, so the next apply will Update rather than Create again.
-	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
+	accountId, ok := safeMapString(response, "accountId")
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected response from backend",
+			"Account was created but the response did not include an account ID. "+
+				"Check the Sedai backend logs for details.",
+		)
+		return
+	}
+	plan.ID = basetypes.NewStringValue(accountId)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -301,14 +310,18 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
 			return
 		}
-		plan.AgentApiKey = basetypes.NewStringValue(agentInstallationCommand["apiKey"].(string))
-		plan.KubeInstallCmd = basetypes.NewStringValue(agentInstallationCommand["kubeInstallCmd"].(string))
-		plan.HelmInstallCmd = basetypes.NewStringValue(agentInstallationCommand["helmInstallCmd"].(string))
-		if agentInstallationCommand["createSecretKubectlCmd"] != nil {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
-		} else {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		if agentInstallationCommand == nil {
+			resp.Diagnostics.AddError("Unable to get agent installation command", "Backend returned empty response")
+			return
 		}
+		apiKey, _ := safeMapString(agentInstallationCommand, "apiKey")
+		kubeCmd, _ := safeMapString(agentInstallationCommand, "kubeInstallCmd")
+		helmCmd, _ := safeMapString(agentInstallationCommand, "helmInstallCmd")
+		secretCmd, _ := safeMapString(agentInstallationCommand, "createSecretKubectlCmd")
+		plan.AgentApiKey = basetypes.NewStringValue(apiKey)
+		plan.KubeInstallCmd = basetypes.NewStringValue(kubeCmd)
+		plan.HelmInstallCmd = basetypes.NewStringValue(helmCmd)
+		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(secretCmd)
 	} else {
 		plan.AgentApiKey = basetypes.NewStringValue("")
 		plan.KubeInstallCmd = basetypes.NewStringValue("")
@@ -432,14 +445,18 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 			resp.Diagnostics.AddError("Unable to get agent installation command", err.Error())
 			return
 		}
-		plan.AgentApiKey = basetypes.NewStringValue(agentInstallationCommand["apiKey"].(string))
-		plan.KubeInstallCmd = basetypes.NewStringValue(agentInstallationCommand["kubeInstallCmd"].(string))
-		plan.HelmInstallCmd = basetypes.NewStringValue(agentInstallationCommand["helmInstallCmd"].(string))
-		if agentInstallationCommand["createSecretKubectlCmd"] != nil {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue(agentInstallationCommand["createSecretKubectlCmd"].(string))
-		} else {
-			plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		if agentInstallationCommand == nil {
+			resp.Diagnostics.AddError("Unable to get agent installation command", "Backend returned empty response")
+			return
 		}
+		apiKey, _ := safeMapString(agentInstallationCommand, "apiKey")
+		kubeCmd, _ := safeMapString(agentInstallationCommand, "kubeInstallCmd")
+		helmCmd, _ := safeMapString(agentInstallationCommand, "helmInstallCmd")
+		secretCmd, _ := safeMapString(agentInstallationCommand, "createSecretKubectlCmd")
+		plan.AgentApiKey = basetypes.NewStringValue(apiKey)
+		plan.KubeInstallCmd = basetypes.NewStringValue(kubeCmd)
+		plan.HelmInstallCmd = basetypes.NewStringValue(helmCmd)
+		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(secretCmd)
 	} else {
 		plan.AgentApiKey = basetypes.NewStringValue("")
 		plan.KubeInstallCmd = basetypes.NewStringValue("")
@@ -447,7 +464,15 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
 	}
 
-	plan.ID = basetypes.NewStringValue(response["accountId"].(string))
+	updatedAccountId, ok := safeMapString(response, "accountId")
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected response from backend",
+			"Account update response did not include an account ID.",
+		)
+		return
+	}
+	plan.ID = basetypes.NewStringValue(updatedAccountId)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
