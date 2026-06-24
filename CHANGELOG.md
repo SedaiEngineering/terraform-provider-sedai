@@ -1,4 +1,4 @@
-## 0.2.0 (Unreleased)
+## 2.0.0
 
 ### MIGRATION GUIDE — What to change in your existing Terraform templates
 
