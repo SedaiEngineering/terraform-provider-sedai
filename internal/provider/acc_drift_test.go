@@ -407,7 +407,7 @@ resource "sedai_group_settings" "test" {
 
   serverless_settings {
     optimization_mode = "AUTO"
-    concurrency_mode  = "AUTO"
+    concurrency_mode  = "OFF"
   }
 }
 `, name)
@@ -512,7 +512,7 @@ resource "sedai_group_settings" "test" {
 
   serverless_settings {
     optimization_mode = "AUTO"
-    concurrency_mode  = "AUTO"
+    concurrency_mode  = "OFF"
   }
 
   bucket_settings {
