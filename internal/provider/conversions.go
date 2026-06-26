@@ -101,7 +101,10 @@ func refreshIfManaged(state *basetypes.StringValue, fetched *string) {
 	if state.IsNull() || state.IsUnknown() {
 		return
 	}
-	*state = nullableString(fetched)
+	if fetched == nil {
+		return
+	}
+	*state = basetypes.NewStringValue(*fetched)
 }
 
 // refreshBoolIfManaged — see refreshIfManaged.
@@ -109,7 +112,10 @@ func refreshBoolIfManaged(state *basetypes.BoolValue, fetched *bool) {
 	if state.IsNull() || state.IsUnknown() {
 		return
 	}
-	*state = nullableBool(fetched)
+	if fetched == nil {
+		return
+	}
+	*state = basetypes.NewBoolValue(*fetched)
 }
 
 // refreshInt64IfManaged — see refreshIfManaged.
@@ -117,7 +123,10 @@ func refreshInt64IfManaged(state *basetypes.Int64Value, fetched *int64) {
 	if state.IsNull() || state.IsUnknown() {
 		return
 	}
-	*state = nullableInt64(fetched)
+	if fetched == nil {
+		return
+	}
+	*state = basetypes.NewInt64Value(*fetched)
 }
 
 // refreshFloat64IfManaged — see refreshIfManaged.
@@ -125,5 +134,27 @@ func refreshFloat64IfManaged(state *basetypes.Float64Value, fetched *float64) {
 	if state.IsNull() || state.IsUnknown() {
 		return
 	}
-	*state = nullableFloat64(fetched)
+	if fetched == nil {
+		return
+	}
+	*state = basetypes.NewFloat64Value(*fetched)
+}
+
+// populateStringIfUnset is the mirror of refreshIfManaged: it writes to state
+// ONLY when state has no prior value (null or unknown). When state is already
+// known the user explicitly set this field and we must not overwrite it with
+// the backend's value — the backend may normalize Required fields (e.g.
+// DATA_PILOT → CO_PILOT) causing perpetual drift if we blindly accept it.
+// Use this for Required/Computed fields backed by a plain (non-pointer) value.
+func populateStringIfUnset(state *basetypes.StringValue, fetched string) {
+	if state.IsNull() || state.IsUnknown() {
+		*state = basetypes.NewStringValue(fetched)
+	}
+}
+
+// populateBoolIfUnset — see populateStringIfUnset.
+func populateBoolIfUnset(state *basetypes.BoolValue, fetched bool) {
+	if state.IsNull() || state.IsUnknown() {
+		*state = basetypes.NewBoolValue(fetched)
+	}
 }

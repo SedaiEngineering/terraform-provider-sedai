@@ -379,10 +379,18 @@ func applyDefinitionToModel(ctx context.Context, state *groupModel, fetched *gro
 	}
 	out := make([]tagBlockModel, 0, len(def.Tags))
 	for _, t := range def.Tags {
+		var exact []string
+		if len(t.Exact) > 0 {
+			exact = t.Exact
+		}
+		var regex []string
+		if len(t.Regex) > 0 {
+			regex = t.Regex
+		}
 		out = append(out, tagBlockModel{
 			Key:   t.Key,
-			Exact: t.Exact,
-			Regex: t.Regex,
+			Exact: exact,
+			Regex: regex,
 		})
 	}
 	state.Tags = out
@@ -442,6 +450,9 @@ func denormalizeResourceTypes(in []string) []string {
 // `namespaces = []` in HCL matches the empty list returned by Read —
 // preventing perpetual `null → []` drift on every plan (BUG-09).
 func stringsToList(values []string) basetypes.ListValue {
+	if len(values) == 0 {
+		return basetypes.NewListNull(types.StringType)
+	}
 	elements := make([]basetypes.StringValue, 0, len(values))
 	for _, v := range values {
 		elements = append(elements, basetypes.NewStringValue(v))
