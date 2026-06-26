@@ -379,10 +379,18 @@ func applyDefinitionToModel(ctx context.Context, state *groupModel, fetched *gro
 	}
 	out := make([]tagBlockModel, 0, len(def.Tags))
 	for _, t := range def.Tags {
+		var exact []string
+		if len(t.Exact) > 0 {
+			exact = t.Exact
+		}
+		var regex []string
+		if len(t.Regex) > 0 {
+			regex = t.Regex
+		}
 		out = append(out, tagBlockModel{
 			Key:   t.Key,
-			Exact: t.Exact,
-			Regex: t.Regex,
+			Exact: exact,
+			Regex: regex,
 		})
 	}
 	state.Tags = out
