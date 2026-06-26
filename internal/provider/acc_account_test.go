@@ -89,7 +89,7 @@ func TestAccACCT(t *testing.T) {
 				{
 					Config: testAccAccountConfig_WithManagedServices(name, `["LAMBDA","EC2"]`),
 					Check: resource.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr("sedai_account.test", "managed_services.#", "2"),
+						resource.TestCheckResourceAttr("sedai_account.test", "user_selected_managed_services.#", "2"),
 					),
 				},
 			},
@@ -313,7 +313,7 @@ func testAccAccountConfig_AWSKeys(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ACCESS_KEY"
+  integration_type = "AGENTLESS"
   access_key       = "AKIAIOSFODNN7EXAMPLE"
   secret_key       = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 }
@@ -325,10 +325,10 @@ func testAccAccountConfig_WithManagedServices(name, services string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
-  managed_services = %[2]s
+  user_selected_managed_services = %[2]s
 }
 `, name, services)
 }
@@ -337,7 +337,7 @@ func testAccAccountConfig_MissingCloudProvider() string {
 	return `
 resource "sedai_account" "test" {
   name             = "test"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "ext-id"
 }
@@ -349,7 +349,7 @@ func testAccAccountConfig_InvalidCloudProvider() string {
 resource "sedai_account" "test" {
   name             = "test"
   cloud_provider   = "INVALID_CLOUD"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "ext-id"
 }
@@ -386,7 +386,7 @@ func testAccAccountConfig_ExternalIdWithoutRole() string {
 resource "sedai_account" "test" {
   name             = "test"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   external_id      = "ext-id"
 }
 `
@@ -397,7 +397,7 @@ func testAccAccountConfig_AccessKeyWithoutSecretKey() string {
 resource "sedai_account" "test" {
   name             = "test"
   cloud_provider   = "AWS"
-  integration_type = "ACCESS_KEY"
+  integration_type = "AGENTLESS"
   access_key       = "AKIAIOSFODNN7EXAMPLE"
 }
 `
@@ -408,7 +408,7 @@ func testAccAccountConfig_SecretKeyWithoutAccessKey() string {
 resource "sedai_account" "test" {
   name             = "test"
   cloud_provider   = "AWS"
-  integration_type = "ACCESS_KEY"
+  integration_type = "AGENTLESS"
   secret_key       = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 }
 `
@@ -435,7 +435,7 @@ func testAccAccountConfig_AccessKeyAndServiceAccount() string {
 resource "sedai_account" "test" {
   name                 = "test"
   cloud_provider       = "GCP"
-  integration_type     = "ACCESS_KEY"
+  integration_type     = "AGENTLESS"
   access_key           = "some-key"
   secret_key           = "some-secret"
   service_account_json = "{}"
@@ -448,10 +448,10 @@ func testAccAccountConfig_InvalidManagedService() string {
 resource "sedai_account" "test" {
   name             = "test"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "ext-id"
-  managed_services = ["INVALID_SERVICE"]
+  user_selected_managed_services = ["INVALID_SERVICE"]
 }
 `
 }

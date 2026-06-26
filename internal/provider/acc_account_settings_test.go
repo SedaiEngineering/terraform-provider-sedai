@@ -219,7 +219,7 @@ func testAccAccountWithSettingsConfig(name, avail, optim string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -237,7 +237,7 @@ func testAccAccountWithSettingsConfigNoSync(name, avail, optim string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -256,7 +256,7 @@ func testAccAccountWithSettingsConfigSync(name, avail, optim, syncEnabled string
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -275,7 +275,7 @@ func testAccAccountWithSettingsConfigTwoAccounts(name1, name2, avail, optim stri
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -283,7 +283,7 @@ resource "sedai_account" "test" {
 resource "sedai_account" "test2" {
   name             = %[2]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-456"
 }
@@ -301,10 +301,10 @@ func testAccAccountWithSettingsConfigAndManagedServices(name, avail, optim, serv
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
-  managed_services = %[4]s
+  user_selected_managed_services = %[4]s
 }
 
 resource "sedai_account_settings" "test" {

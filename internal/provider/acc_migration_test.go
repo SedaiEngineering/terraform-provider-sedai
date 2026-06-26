@@ -190,7 +190,7 @@ func testAccMigrAzureAccountConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AZURE"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   subscription_id  = "00000000-0000-0000-0000-000000000001"
   tenant_id        = "00000000-0000-0000-0000-000000000002"
   client_id        = "00000000-0000-0000-0000-000000000003"
@@ -204,7 +204,7 @@ func testAccMigrCloudWatchConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -222,7 +222,7 @@ func testAccMigrDatadogConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -261,7 +261,7 @@ func testAccMigrFullStackConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -290,7 +290,7 @@ func testAccMigrAccountSettingsConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }

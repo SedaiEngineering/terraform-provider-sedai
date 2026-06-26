@@ -146,7 +146,7 @@ func testAccDataSourceAccountConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -171,7 +171,7 @@ func testAccDataSourceAccountConfig_DuplicateName(prefix string) string {
 resource "sedai_account" "a1" {
   name             = "%[1]s-same"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::111111111111:role/SedaiRole"
   external_id      = "ext-1"
 }
@@ -179,7 +179,7 @@ resource "sedai_account" "a1" {
 resource "sedai_account" "a2" {
   name             = "%[1]s-same"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::222222222222:role/SedaiRole"
   external_id      = "ext-2"
 }
@@ -248,7 +248,7 @@ func testAccDataSourceAccountSettingsConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }

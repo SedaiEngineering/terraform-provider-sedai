@@ -307,7 +307,7 @@ func TestAccACCT_GCP(t *testing.T) {
 				{
 					Config: testAccAccountConfig_GCPWithManagedServices(name, projectId, saJson, `["GCP_CLOUD_SQL","GCP_CLOUD_RUN"]`),
 					Check: resource.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr("sedai_account.test", "managed_services.#", "2"),
+						resource.TestCheckResourceAttr("sedai_account.test", "user_selected_managed_services.#", "2"),
 					),
 				},
 			},
@@ -382,7 +382,7 @@ func TestAccACCT_GCP(t *testing.T) {
 					Config: testAccAccountConfig_GCPWithManagedServices(name, projectId, saJson, `["GCP_CLOUD_SQL","GCP_CLOUD_RUN"]`),
 					Check: resource.ComposeTestCheckFunc(
 						resource.TestCheckResourceAttrSet("sedai_account.test", "id"),
-						resource.TestCheckResourceAttr("sedai_account.test", "managed_services.#", "2"),
+						resource.TestCheckResourceAttr("sedai_account.test", "user_selected_managed_services.#", "2"),
 					),
 				},
 				{
@@ -772,7 +772,7 @@ resource "sedai_account" "test" {
   subscription_id  = %[3]q
   client_id        = %[4]q
   client_secret    = %[5]q
-  managed_services = [%[6]s]
+  user_selected_managed_services = [%[6]s]
 }
 `, name, tenantId, subscriptionId, clientId, clientSecret, strings.Join(quoted, ", "))
 }
@@ -822,7 +822,7 @@ resource "sedai_account" "test" {
   integration_type     = "AGENTLESS"
   project_id           = %[2]q
   service_account_json = %[3]q
-  managed_services     = %[4]s
+  user_selected_managed_services     = %[4]s
 }
 `, name, projectId, serviceAccountJson, services)
 }

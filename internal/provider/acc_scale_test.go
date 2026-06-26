@@ -165,7 +165,7 @@ func testAccScale12AccountsConfig(prefix string) string {
 resource "sedai_account" "acct%d" {
   name             = "%s-acct-%d"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::%012d:role/SedaiRole"
   external_id      = "sedai-ext-%d"
 }
@@ -179,7 +179,7 @@ func testAccDependencyChainConfig(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }

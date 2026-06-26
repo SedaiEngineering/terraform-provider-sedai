@@ -80,7 +80,7 @@ func testAccAccountConfig_AWSRole(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -161,7 +161,7 @@ func testAccCloudWatchConfig(accountName string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -185,7 +185,7 @@ func testAccFullStackConfig(prefix string, count int) string {
 resource "sedai_account" "acct%[1]d" {
   name             = "%[2]s-acct-%[1]d"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::%[3]012d:role/SedaiRole"
   external_id      = "sedai-ext-%[1]d"
 }

@@ -973,7 +973,7 @@ func testAccAccountSettingsConfig_WithKube(name, minReplicas, maxReplicas string
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -994,7 +994,7 @@ func testAccAccountSettingsConfig_NoSubblocks(name string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -1011,7 +1011,7 @@ func testAccAccountSettingsConfig_WithServerless(name, availMode, optMode, optFo
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -1033,7 +1033,7 @@ func testAccAccountSettingsConfig_WithECS(name, minReplicas, maxReplicas, minCPU
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -1056,7 +1056,7 @@ func testAccAccountSettingsConfig_WithBucket(name, optMode string) string {
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -1076,7 +1076,7 @@ func testAccAccountSettingsConfig_WithVolume(name, availMode, optMode string) st
 resource "sedai_account" "test" {
   name             = %[1]q
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -1097,7 +1097,7 @@ func testAccAccountSettingsConfig_AutoWithApp() string {
 resource "sedai_account" "test" {
   name             = "aset-auto-app-invalid"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
@@ -1118,7 +1118,7 @@ func testAccAccountSettingsConfig_CopilotServerlessConflict() string {
 resource "sedai_account" "test" {
   name             = "aset-copilot-serverless"
   cloud_provider   = "AWS"
-  integration_type = "ROLE"
+  integration_type = "AGENTLESS"
   role             = "arn:aws:iam::123456789012:role/SedaiRole"
   external_id      = "sedai-ext-123"
 }
