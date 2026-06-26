@@ -139,3 +139,22 @@ func refreshFloat64IfManaged(state *basetypes.Float64Value, fetched *float64) {
 	}
 	*state = basetypes.NewFloat64Value(*fetched)
 }
+
+// populateStringIfUnset is the mirror of refreshIfManaged: it writes to state
+// ONLY when state has no prior value (null or unknown). When state is already
+// known the user explicitly set this field and we must not overwrite it with
+// the backend's value — the backend may normalize Required fields (e.g.
+// DATA_PILOT → CO_PILOT) causing perpetual drift if we blindly accept it.
+// Use this for Required/Computed fields backed by a plain (non-pointer) value.
+func populateStringIfUnset(state *basetypes.StringValue, fetched string) {
+	if state.IsNull() || state.IsUnknown() {
+		*state = basetypes.NewStringValue(fetched)
+	}
+}
+
+// populateBoolIfUnset — see populateStringIfUnset.
+func populateBoolIfUnset(state *basetypes.BoolValue, fetched bool) {
+	if state.IsNull() || state.IsUnknown() {
+		*state = basetypes.NewBoolValue(fetched)
+	}
+}

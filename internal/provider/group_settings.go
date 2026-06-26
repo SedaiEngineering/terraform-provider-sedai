@@ -38,6 +38,7 @@ func GroupSettings() resource.Resource {
 type groupSettings struct{}
 
 type groupSettingsResourceModel struct {
+	ID               basetypes.StringValue `tfsdk:"id"`
 	GroupID          basetypes.StringValue `tfsdk:"group_id"`
 	AvailabilityMode basetypes.StringValue `tfsdk:"availability_mode"`
 	OptimizationMode basetypes.StringValue `tfsdk:"optimization_mode"`
@@ -64,6 +65,13 @@ func (r *groupSettings) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	resp.Schema = schema.Schema{
 		Description: "Manages the top-level settings for a Sedai group. The provider auto-initializes the group's settings on first apply, so the customer never has to call the init API directly. Only attributes specified in this resource are tracked for drift — unmanaged per-resource-type tuning (kube scaling, etc.) is preserved as-is.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed:    true,
+				Description: "Resource identifier (mirrors group_id). Required by Terraform's import mechanism.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"group_id": schema.StringAttribute{
 				Required:    true,
 				Description: "The ID of the group to configure. Typically `sedai_group.<name>.id`.",
@@ -127,6 +135,7 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
+	plan.ID = plan.GroupID
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
@@ -152,9 +161,17 @@ func (r *groupSettings) Read(ctx context.Context, req resource.ReadRequest, resp
 		return
 	}
 
-	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
-	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
-	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	// Only populate mode fields when state has no prior value (null/unknown),
+	// i.e. on the first read after import. When already known, the user
+	// explicitly set these Required fields — don't overwrite with the backend's
+	// normalized value, which can differ (e.g. DATA_PILOT → CO_PILOT) and would
+	// cause perpetual drift on every subsequent plan.
+	populateStringIfUnset(&state.AvailabilityMode, settings.AvailabilityMode)
+	populateStringIfUnset(&state.OptimizationMode, settings.OptimizationMode)
+	populateBoolIfUnset(&state.SedaiSyncEnabled, settings.SedaiSyncEnabled)
+
+	// id mirrors group_id so terraform import can locate this resource.
+	state.ID = state.GroupID
 
 	// Refresh each per-resource-type block ONLY for fields the user is
 	// already managing. Helper handles nil state block (user didn't include
@@ -187,6 +204,7 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	plan.ID = plan.GroupID
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
@@ -214,10 +232,12 @@ func (r *groupSettings) Delete(ctx context.Context, req resource.DeleteRequest, 
 }
 
 // ImportState lets `terraform import sedai_group_settings.<name> <group-id>`
-// adopt existing settings. The supplied ID is written into group_id; the
-// Read flow then fetches the current values.
+// adopt existing settings. The import ID is the group_id; we write it into
+// both `id` (Terraform's synthetic resource identifier) and `group_id` so
+// the subsequent Read call has a non-empty group_id to query.
 func (r *groupSettings) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("group_id"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), req.ID)...)
 }
 
 // The *FromSDK functions below are full-populate mappers used by data sources.
