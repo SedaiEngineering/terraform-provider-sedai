@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	tfresource "github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -70,6 +71,8 @@ func (r *resourceSettings) Schema(_ context.Context, _ tfresource.SchemaRequest,
 			},
 			"sedai_sync_enabled": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When true, Sedai auto-syncs this resource with the latest cloud-side configuration. Defaults to false if omitted.",
 			},
 			"resource_type": schema.StringAttribute{
@@ -123,7 +126,7 @@ func (r *resourceSettings) Read(ctx context.Context, req tfresource.ReadRequest,
 
 	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
 	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
-	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	populateBoolIfUnset(&state.SedaiSyncEnabled, settings.SedaiSyncEnabled)
 	state.ResourceType = basetypes.NewStringValue(settings.ResourceType)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
