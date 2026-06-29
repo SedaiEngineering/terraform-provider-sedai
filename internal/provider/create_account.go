@@ -491,7 +491,7 @@ func (r *createAccount) Delete(ctx context.Context, req resource.DeleteRequest, 
 		return
 	}
 
-	_, err := account.DeleteAccount(state.Name.ValueString())
+	_, err := account.DeleteAccountById(state.ID.ValueString(), state.Name.ValueString())
 	if err != nil {
 		// If the account no longer exists on the backend (backend NPE on null account,
 		// or explicit not-found), treat delete as success — desired state is achieved.
