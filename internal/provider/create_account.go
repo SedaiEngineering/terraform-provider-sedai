@@ -265,21 +265,49 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 	createAccountRequest := createAccountRequest(plan)
 	response, err := account.CreateAccount(createAccountRequest)
 	if err != nil {
-		// POST failed — verify if the backend created it anyway.
-		// Handles EOF-during-POST where the server processed the request but the
-		// response was lost in transit. See LIMITATIONS.md for known edge cases.
-		for i := 0; i < 3; i++ {
-			time.Sleep(2 * time.Second)
-			existing, searchErr := account.SearchAccountsByName(plan.Name.ValueString())
-			if searchErr == nil && len(existing) > 0 {
-				resp.Diagnostics.AddWarning(
-					"Account created despite connection error",
-					"Account '"+plan.Name.ValueString()+"' was found on the backend after a failed POST — "+
-						"the response was likely lost in transit. Using existing ID: "+existing[0].ID,
-				)
-				plan.ID = basetypes.NewStringValue(existing[0].ID)
-				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-				return
+		// Only attempt recovery for genuine connection errors (EOF, reset, timeout).
+		// Business logic errors like "account already exists" must surface directly —
+		// silently adopting a pre-existing account the user didn't create is dangerous.
+		if isConnectionError(err) {
+			// Poll for the account using name + cloudProvider + integrationType.
+			// Name alone is not enough — the backend allows duplicate names, so we
+			// narrow the match to avoid adopting a pre-existing unrelated account.
+			for i := 0; i < 3; i++ {
+				time.Sleep(2 * time.Second)
+				candidates, searchErr := account.SearchAccountsByName(plan.Name.ValueString())
+				if searchErr != nil {
+					continue
+				}
+				var matched []*account.Account
+				for _, a := range candidates {
+					if a.AccountDetails.CloudProvider == plan.CloudProvider.ValueString() &&
+						a.AccountDetails.IntegrationType == plan.IntegrationType.ValueString() {
+						matched = append(matched, a)
+					}
+				}
+				if len(matched) == 1 {
+					resp.Diagnostics.AddWarning(
+						"Account created despite connection error",
+						"Account '"+plan.Name.ValueString()+"' was found on the backend after a failed POST — "+
+							"the response was likely lost in transit. Using existing ID: "+matched[0].ID,
+					)
+					plan.ID = basetypes.NewStringValue(matched[0].ID)
+					resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+					return
+				}
+				if len(matched) > 1 {
+					ids := ""
+					for _, a := range matched {
+						ids += a.ID + " "
+					}
+					resp.Diagnostics.AddError(
+						"Unable to recover account after connection error",
+						"Multiple accounts named '"+plan.Name.ValueString()+"' with the same cloud provider and "+
+							"integration type exist. Cannot determine which was just created. "+
+							"Use terraform import to bring the correct one into state. IDs: "+ids,
+					)
+					return
+				}
 			}
 		}
 		resp.Diagnostics.AddError("Unable to create account", err.Error())
