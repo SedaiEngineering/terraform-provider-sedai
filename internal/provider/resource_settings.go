@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/resource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -94,8 +95,27 @@ func (r *resourceSettings) Create(ctx context.Context, req tfresource.CreateRequ
 	}
 
 	if err := resource.UpdateResourceSettings(plan.ResourceID.ValueString(), resourceSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set resource settings", err.Error())
-		return
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetResourceSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := resource.GetResourceSettings(plan.ResourceID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Resource settings configured despite connection error",
+					"Settings for resource '"+plan.ResourceID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set resource settings", err.Error())
+			return
+		}
 	}
 
 	// Read back to populate the computed resource_type from the backend.
