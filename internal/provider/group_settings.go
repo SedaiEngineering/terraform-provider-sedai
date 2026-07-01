@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
@@ -126,13 +127,38 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 	// Settings must be initialized before the first update; the API is a
 	// no-op if already initialized so we always call it from Create.
 	if err := groups.InitializeGroupSettings(plan.GroupID.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Unable to initialize group settings", err.Error())
-		return
+		// Init may have succeeded before the connection dropped — check whether
+		// settings already exist before treating this as a hard failure.
+		existing, _ := groups.GetGroupSettings(plan.GroupID.ValueString())
+		if existing == nil {
+			resp.Diagnostics.AddError("Unable to initialize group settings", err.Error())
+			return
+		}
+		// Settings already exist on the backend — fall through to UpdateGroupSettings.
 	}
 
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set group settings", err.Error())
-		return
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetGroupSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := groups.GetGroupSettings(plan.GroupID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Group settings configured despite connection error",
+					"Settings for group '"+plan.GroupID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set group settings", err.Error())
+			return
+		}
 	}
 
 	plan.ID = plan.GroupID
