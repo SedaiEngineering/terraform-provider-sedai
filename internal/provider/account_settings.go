@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -111,8 +112,27 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set account settings", err.Error())
-		return
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetAccountSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := account.GetAccountSettings(plan.AccountID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Account settings configured despite connection error",
+					"Settings for account '"+plan.AccountID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set account settings", err.Error())
+			return
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
