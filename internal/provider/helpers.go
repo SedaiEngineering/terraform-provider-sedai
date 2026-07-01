@@ -1,11 +1,41 @@
 package provider
 
 import (
+	"errors"
+	"io"
+	"net"
+	"syscall"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/monitoringProvider"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
+
+// isConnectionError reports whether err is a transient network failure
+// (EOF, connection reset, timeout) rather than a backend business-logic
+// rejection. Only transient errors should trigger EOF recovery — adopting
+// a pre-existing resource on a business-logic error (e.g. "invalid credentials")
+// silently hijacks resources the user didn't create.
+//
+// Uses errors.Is/As so it correctly traverses wrapped errors, including
+// APIException which now implements Unwrap().
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// io.EOF — connection closed before response received
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	// net.Error — covers timeouts and temporary network failures
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+	// syscall errors — connection reset by peer, broken pipe
+	return errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.EPIPE)
+}
 
 // safeMapString safely extracts a string value from a map[string]interface{}.
 // Returns ("", false) if the key is missing or the value is not a non-empty string,
