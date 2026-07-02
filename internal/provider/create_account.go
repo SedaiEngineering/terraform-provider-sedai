@@ -534,6 +534,26 @@ func (r *createAccount) Delete(ctx context.Context, req resource.DeleteRequest, 
 		resp.Diagnostics.AddError("Unable to delete account", msg)
 		return
 	}
+
+	// Poll until the account is confirmed gone from the backend (industry standard pattern).
+	// DELETE returns 200 OK before the backend fully purges the account — without this,
+	// a RequiresReplace cycle (destroy + recreate same-named account) fails with
+	// "already exists" because the create fires before the backend clears the old record.
+	// Uses context cancellation so Ctrl+C or Terraform timeouts are respected.
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		existing, _ := account.SearchAccountsById(state.ID.ValueString())
+		if existing == nil {
+			return // confirmed gone — safe for subsequent create
+		}
+		select {
+		case <-ctx.Done():
+			return // Terraform cancelled — don't block
+		case <-time.After(2 * time.Second):
+			// wait and poll again
+		}
+	}
+	// 30s elapsed without confirmation — proceed anyway; backend will eventually purge
 }
 
 func (r *createAccount) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
