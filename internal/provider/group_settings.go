@@ -228,9 +228,9 @@ func (r *groupSettings) Read(ctx context.Context, req resource.ReadRequest, resp
 	// id mirrors group_id so terraform import can locate this resource.
 	state.ID = state.GroupID
 
-	// Refresh each per-resource-type block ONLY for fields the user is
-	// already managing. Helper handles nil state block (user didn't include
-	// the HCL block) and the field-level partial-spec contract.
+	// Normal read — partial-spec: only refresh blocks the user is managing.
+	// Import context is handled in ImportState (full populate there ensures
+	// sub-blocks are non-nil when Read runs, so this path works correctly).
 	kubeAppSettingsRefresh(state.KubeAppSettings, settings.KubeAppSettings)
 	bucketSettingsRefresh(state.BucketSettings, settings.BucketSettings)
 	appSettingsRefresh(state.AppSettings, settings.AppSettings)
@@ -290,9 +290,33 @@ func (r *groupSettings) Delete(ctx context.Context, req resource.DeleteRequest, 
 // adopt existing settings. The import ID is the group_id; we write it into
 // both `id` (Terraform's synthetic resource identifier) and `group_id` so
 // the subsequent Read call has a non-empty group_id to query.
+// ImportState fully populates state from the backend so the subsequent Read
+// sees non-nil sub-blocks and partial-spec logic works correctly — no extra
+// apply needed after import to stabilize the plan.
 func (r *groupSettings) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), req.ID)...)
+	settings, err := groups.GetGroupSettings(req.ID)
+	if err != nil || settings == nil {
+		// Fall back to minimal state — Read will handle missing settings.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), req.ID)...)
+		return
+	}
+
+	var state groupSettingsResourceModel
+	state.ID = basetypes.NewStringValue(req.ID)
+	state.GroupID = basetypes.NewStringValue(req.ID)
+	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
+	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
+	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	state.KubeAppSettings = kubeAppSettingsFromSDK(settings.KubeAppSettings)
+	state.BucketSettings = bucketSettingsFromSDK(settings.BucketSettings)
+	state.AppSettings = appSettingsFromSDK(settings.AppSettings)
+	state.ContainerAppSettings = containerAppSettingsFromSDK(settings.ContainerAppSettings)
+	state.ECSAppSettings = ecsAppSettingsFromSDK(settings.ECSAppSettings)
+	state.ServerlessSettings = serverlessSettingsFromSDK(settings.ServerlessSettings)
+	state.VolumeSettings = volumeSettingsFromSDK(settings.VolumeSettings)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // The *FromSDK functions below are full-populate mappers used by data sources.
