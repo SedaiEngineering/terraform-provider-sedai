@@ -183,18 +183,22 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"agent_api_key": schema.StringAttribute{
 				Computed:    true,
+				Sensitive:   true,
 				Description: "Agent API key. Populated only for `AGENT_BASED` integration.",
 			},
 			"kube_install_cmd": schema.StringAttribute{
 				Computed:    true,
+				Sensitive:   true,
 				Description: "kubectl command to install the Sedai agent. Populated only for `AGENT_BASED` integration.",
 			},
 			"helm_install_cmd": schema.StringAttribute{
 				Computed:    true,
-				Description: "Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration.",
+				Sensitive:   true,
+				Description: "Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration. Embeds the agent API key — treat as a secret.",
 			},
 			"create_secret_kubectl_cmd": schema.StringAttribute{
 				Computed:    true,
+				Sensitive:   true,
 				Description: "kubectl command to create the agent secret. Populated only for `AGENT_BASED` integration.",
 			},
 			"tenant_id": schema.StringAttribute{
@@ -351,10 +355,10 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 		plan.HelmInstallCmd = basetypes.NewStringValue(helmCmd)
 		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(secretCmd)
 	} else {
-		plan.AgentApiKey = basetypes.NewStringValue("")
-		plan.KubeInstallCmd = basetypes.NewStringValue("")
-		plan.HelmInstallCmd = basetypes.NewStringValue("")
-		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		plan.AgentApiKey = basetypes.NewStringNull()
+		plan.KubeInstallCmd = basetypes.NewStringNull()
+		plan.HelmInstallCmd = basetypes.NewStringNull()
+		plan.CreateSecretKubectlCmd = basetypes.NewStringNull()
 	}
 
 	diags = resp.State.Set(ctx, plan)
@@ -486,10 +490,10 @@ func (r *createAccount) Update(ctx context.Context, req resource.UpdateRequest, 
 		plan.HelmInstallCmd = basetypes.NewStringValue(helmCmd)
 		plan.CreateSecretKubectlCmd = basetypes.NewStringValue(secretCmd)
 	} else {
-		plan.AgentApiKey = basetypes.NewStringValue("")
-		plan.KubeInstallCmd = basetypes.NewStringValue("")
-		plan.HelmInstallCmd = basetypes.NewStringValue("")
-		plan.CreateSecretKubectlCmd = basetypes.NewStringValue("")
+		plan.AgentApiKey = basetypes.NewStringNull()
+		plan.KubeInstallCmd = basetypes.NewStringNull()
+		plan.HelmInstallCmd = basetypes.NewStringNull()
+		plan.CreateSecretKubectlCmd = basetypes.NewStringNull()
 	}
 
 	updatedAccountId, ok := safeMapString(response, "accountId")
