@@ -373,6 +373,25 @@ func (r *createAccount) Create(ctx context.Context, req resource.CreateRequest, 
 		}
 		time.Sleep(2 * time.Second)
 	}
+
+	// Poll until the account's settings subsystem is also initialized.
+	// Account creation involves two independent backend systems: the account
+	// registry (polled above) and the settings subsystem (polled here).
+	// sedai_account_settings depends on the settings subsystem being ready —
+	// without this poll it can fail with "settings not available" at scale.
+	// Soft timeout: proceed after 30s; account_settings has its own retry as backup.
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		settings, _ := account.GetAccountSettings(accountId)
+		if settings != nil {
+			break // settings subsystem ready
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 // Read refreshes the Terraform state with the latest data.
