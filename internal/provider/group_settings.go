@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
@@ -17,8 +18,9 @@ import (
 
 // Ensure interfaces are satisfied.
 var (
-	_ resource.Resource                = &groupSettings{}
-	_ resource.ResourceWithImportState = &groupSettings{}
+	_ resource.Resource                      = &groupSettings{}
+	_ resource.ResourceWithImportState       = &groupSettings{}
+	_ resource.ResourceWithConfigValidators  = &groupSettings{}
 )
 
 // GroupSettings is the resource constructor for `sedai_group_settings`.
@@ -111,6 +113,37 @@ func (r *groupSettings) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	}
 }
 
+// ConfigValidators moves validateTopLevelModeConflicts to plan time so the
+// error surfaces before any resource is created, preventing partial-state
+// failures when the invalid combination is detected mid-apply.
+func (r *groupSettings) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{groupSettingsModeValidator{}}
+}
+
+type groupSettingsModeValidator struct{}
+
+func (v groupSettingsModeValidator) Description(_ context.Context) string {
+	return "Validates that top-level modes are compatible with per-resource-type blocks."
+}
+
+func (v groupSettingsModeValidator) MarkdownDescription(_ context.Context) string {
+	return v.Description(context.Background())
+}
+
+func (v groupSettingsModeValidator) ValidateResource(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var cfg groupSettingsResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := validateTopLevelModeConflicts(
+		cfg.AvailabilityMode.ValueString(), cfg.OptimizationMode.ValueString(),
+		cfg.AppSettings, cfg.BucketSettings, cfg.VolumeSettings, cfg.ServerlessSettings,
+	); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+	}
+}
+
 func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan groupSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -118,21 +151,43 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
-		resp.Diagnostics.AddError("Invalid mode combination", err)
-		return
-	}
+	// Mode conflict validation runs at plan time via ConfigValidators.
 
 	// Settings must be initialized before the first update; the API is a
 	// no-op if already initialized so we always call it from Create.
 	if err := groups.InitializeGroupSettings(plan.GroupID.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Unable to initialize group settings", err.Error())
-		return
+		// Init may have succeeded before the connection dropped — check whether
+		// settings already exist before treating this as a hard failure.
+		existing, _ := groups.GetGroupSettings(plan.GroupID.ValueString())
+		if existing == nil {
+			resp.Diagnostics.AddError("Unable to initialize group settings", err.Error())
+			return
+		}
+		// Settings already exist on the backend — fall through to UpdateGroupSettings.
 	}
 
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set group settings", err.Error())
-		return
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetGroupSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := groups.GetGroupSettings(plan.GroupID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Group settings configured despite connection error",
+					"Settings for group '"+plan.GroupID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set group settings", err.Error())
+			return
+		}
 	}
 
 	plan.ID = plan.GroupID
@@ -259,7 +314,7 @@ func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsMode
 		HorizontalScalingEnabled:           nullableBool(s.HorizontalScalingEnabled),
 		HorizontalScalingMinReplicas:       nullableInt64(s.HorizontalScalingMinReplicas),
 		HorizontalScalingMaxReplicas:       nullableInt64(s.HorizontalScalingMaxReplicas),
-		HorizontalScalingReplicaMultiplier: nullableInt64(s.HorizontalScalingReplicaMultiplier),
+		HorizontalScalingReplicaMultiplier: nullableFloat64(s.HorizontalScalingReplicaMultiplier),
 		VerticalScalingEnabled:             nullableBool(s.VerticalScalingEnabled),
 		VerticalScalingMinCPUCores:         nullableFloat64(s.VerticalScalingMinCPUCores),
 		VerticalScalingMinMemoryBytes:      nullableInt64(s.VerticalScalingMinMemoryBytes),

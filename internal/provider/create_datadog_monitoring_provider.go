@@ -347,6 +347,12 @@ func createDatadogMonitoringProviderRequest(plan datadogMonitoringProviderModel)
 	if !plan.ClusterDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
 	}
+	if !plan.AzDimensions.IsNull() {
+		createDatadogMonitoringProviderRequest.AzDimensions = convertFromBaseTypes(plan.AzDimensions)
+	}
+	if !plan.EnvDimensions.IsNull() {
+		createDatadogMonitoringProviderRequest.EnvDimensions = convertFromBaseTypes(plan.EnvDimensions)
+	}
 
 	return createDatadogMonitoringProviderRequest
 }

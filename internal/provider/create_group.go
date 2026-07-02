@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"errors"
+	"regexp"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -79,7 +81,13 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			},
 			"name": schema.StringAttribute{
 				Required:    true,
-				Description: "Group name. Must be unique within the Sedai tenant.",
+				Description: "Group name. Must be unique within the Sedai tenant. Cannot contain '/' — use '-' or '_' as a separator instead.",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[^/]+$`),
+						"group name cannot contain '/' — use '-' or '_' as a separator (e.g. 'prod-payments' instead of 'prod/payments')",
+					),
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Optional:    true,
