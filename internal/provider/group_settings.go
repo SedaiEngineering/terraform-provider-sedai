@@ -18,8 +18,9 @@ import (
 
 // Ensure interfaces are satisfied.
 var (
-	_ resource.Resource                = &groupSettings{}
-	_ resource.ResourceWithImportState = &groupSettings{}
+	_ resource.Resource                      = &groupSettings{}
+	_ resource.ResourceWithImportState       = &groupSettings{}
+	_ resource.ResourceWithConfigValidators  = &groupSettings{}
 )
 
 // GroupSettings is the resource constructor for `sedai_group_settings`.
@@ -112,6 +113,37 @@ func (r *groupSettings) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	}
 }
 
+// ConfigValidators moves validateTopLevelModeConflicts to plan time so the
+// error surfaces before any resource is created, preventing partial-state
+// failures when the invalid combination is detected mid-apply.
+func (r *groupSettings) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{groupSettingsModeValidator{}}
+}
+
+type groupSettingsModeValidator struct{}
+
+func (v groupSettingsModeValidator) Description(_ context.Context) string {
+	return "Validates that top-level modes are compatible with per-resource-type blocks."
+}
+
+func (v groupSettingsModeValidator) MarkdownDescription(_ context.Context) string {
+	return v.Description(context.Background())
+}
+
+func (v groupSettingsModeValidator) ValidateResource(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var cfg groupSettingsResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := validateTopLevelModeConflicts(
+		cfg.AvailabilityMode.ValueString(), cfg.OptimizationMode.ValueString(),
+		cfg.AppSettings, cfg.BucketSettings, cfg.VolumeSettings, cfg.ServerlessSettings,
+	); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+	}
+}
+
 func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan groupSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -119,10 +151,7 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
-		resp.Diagnostics.AddError("Invalid mode combination", err)
-		return
-	}
+	// Mode conflict validation runs at plan time via ConfigValidators.
 
 	// Settings must be initialized before the first update; the API is a
 	// no-op if already initialized so we always call it from Create.
