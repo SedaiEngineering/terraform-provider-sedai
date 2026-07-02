@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
@@ -138,7 +139,29 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 
 	// Mode conflict validation runs at plan time via ConfigValidators.
 
-	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
+	// Retry on "settings not available" — transient error when the backend's
+	// settings subsystem hasn't finished initializing the account yet.
+	// Approach A (polling in sedai_account.Create) handles this at source;
+	// this retry is a safety net for edge cases under extreme backend load.
+	var updateErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		updateErr = account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan))
+		if updateErr == nil {
+			break
+		}
+		if strings.Contains(updateErr.Error(), "settings not available") ||
+			strings.Contains(updateErr.Error(), "not initialized") {
+			select {
+			case <-ctx.Done():
+				break
+			case <-time.After(time.Duration(2<<uint(attempt)) * time.Second): // 2s, 4s, 8s, 16s, 32s
+			}
+			continue
+		}
+		break // non-retryable error
+	}
+
+	if updateErr != nil {
 		// POST may have been processed before the connection dropped (EOF-during-POST).
 		// Poll GetAccountSettings up to 3 times before treating this as a hard failure.
 		adopted := false
@@ -157,7 +180,7 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 			}
 		}
 		if !adopted {
-			resp.Diagnostics.AddError("Unable to set account settings", err.Error())
+			resp.Diagnostics.AddError("Unable to set account settings", updateErr.Error())
 			return
 		}
 	}
