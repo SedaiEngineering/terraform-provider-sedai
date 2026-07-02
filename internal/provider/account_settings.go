@@ -189,7 +189,8 @@ func (r *accountSettings) Read(ctx context.Context, req resource.ReadRequest, re
 	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
 	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
 
-	// Refresh per-resource-type blocks (field-level partial spec).
+	// Normal read — partial-spec: only refresh blocks the user is managing.
+	// Import context is handled in ImportState (full populate there).
 	kubeAppSettingsRefresh(state.KubeAppSettings, settings.KubeAppSettings)
 	bucketSettingsRefresh(state.BucketSettings, settings.BucketSettings)
 	appSettingsRefresh(state.AppSettings, settings.AppSettings)
@@ -239,8 +240,31 @@ func (r *accountSettings) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
+// ImportState fully populates state from the backend so the subsequent Read
+// sees non-nil sub-blocks and partial-spec logic works correctly — no extra
+// apply needed after import to stabilize the plan.
 func (r *accountSettings) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("account_id"), req, resp)
+	settings, err := account.GetAccountSettings(req.ID)
+	if err != nil || settings == nil {
+		// Fall back to minimal state — Read will handle missing settings.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("account_id"), req.ID)...)
+		return
+	}
+
+	var state accountSettingsResourceModel
+	state.AccountID = basetypes.NewStringValue(req.ID)
+	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
+	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
+	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	state.KubeAppSettings = kubeAppSettingsFromSDK(settings.KubeAppSettings)
+	state.BucketSettings = bucketSettingsFromSDK(settings.BucketSettings)
+	state.AppSettings = appSettingsFromSDK(settings.AppSettings)
+	state.ContainerAppSettings = containerAppSettingsFromSDK(settings.ContainerAppSettings)
+	state.ECSAppSettings = ecsAppSettingsFromSDK(settings.ECSAppSettings)
+	state.ServerlessSettings = serverlessSettingsFromSDK(settings.ServerlessSettings)
+	state.VolumeSettings = volumeSettingsFromSDK(settings.VolumeSettings)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 func accountSettingsRequestFromPlan(p accountSettingsResourceModel) *account.AccountSettings {
