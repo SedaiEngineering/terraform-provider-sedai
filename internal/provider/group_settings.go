@@ -314,7 +314,7 @@ func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsMode
 		HorizontalScalingEnabled:           nullableBool(s.HorizontalScalingEnabled),
 		HorizontalScalingMinReplicas:       nullableInt64(s.HorizontalScalingMinReplicas),
 		HorizontalScalingMaxReplicas:       nullableInt64(s.HorizontalScalingMaxReplicas),
-		HorizontalScalingReplicaMultiplier: nullableInt64(s.HorizontalScalingReplicaMultiplier),
+		HorizontalScalingReplicaMultiplier: nullableFloat64(s.HorizontalScalingReplicaMultiplier),
 		VerticalScalingEnabled:             nullableBool(s.VerticalScalingEnabled),
 		VerticalScalingMinCPUCores:         nullableFloat64(s.VerticalScalingMinCPUCores),
 		VerticalScalingMinMemoryBytes:      nullableInt64(s.VerticalScalingMinMemoryBytes),
