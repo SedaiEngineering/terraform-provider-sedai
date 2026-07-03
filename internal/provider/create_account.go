@@ -179,21 +179,33 @@ func (r *createAccount) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Computed:    true,
 				Sensitive:   true,
 				Description: "Agent API key. Populated only for `AGENT_BASED` integration.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"kube_install_cmd": schema.StringAttribute{
 				Computed:    true,
 				Sensitive:   true,
 				Description: "kubectl command to install the Sedai agent. Populated only for `AGENT_BASED` integration.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"helm_install_cmd": schema.StringAttribute{
 				Computed:    true,
 				Sensitive:   true,
 				Description: "Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration. Embeds the agent API key — treat as a secret.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"create_secret_kubectl_cmd": schema.StringAttribute{
 				Computed:    true,
 				Sensitive:   true,
 				Description: "kubectl command to create the agent secret. Populated only for `AGENT_BASED` integration.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tenant_id": schema.StringAttribute{
 				Optional:    true,
