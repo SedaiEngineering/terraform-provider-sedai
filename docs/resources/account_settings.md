@@ -106,7 +106,7 @@ Optional:
 - `horizontal_scaling_enabled` (Boolean) Enable horizontal scaling (replica count tuning) for Kubernetes workloads.
 - `horizontal_scaling_max_replicas` (Number) Ceiling for replica count when horizontal scaling is enabled.
 - `horizontal_scaling_min_replicas` (Number) Floor for replica count when horizontal scaling is enabled.
-- `horizontal_scaling_replica_multiplier` (Number) Factor by which replicas scale during horizontal events. Kubernetes-specific.
+- `horizontal_scaling_replica_multiplier` (Number) Factor by which replicas scale during horizontal events (e.g. 1.5 = scale by 50%). Kubernetes-specific.
 - `is_operation_allowed` (Boolean) Master on/off for Sedai actions on Kubernetes workloads in this scope.
 - `is_prod` (Boolean) Mark Kubernetes workloads as production — production allows fewer aggressive optimizations.
 - `max_cpu_increase_pct` (Number) Guardrail: maximum acceptable CPU increase % during optimization.

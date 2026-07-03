@@ -114,12 +114,12 @@ resource "sedai_account" "gke_account" {
 - `client_secret` (String, Sensitive) Azure service principal client secret. Required for Azure accounts.
 - `cluster_provider` (String) Kubernetes cluster provider. Required when `cloud_provider = "KUBERNETES"`. Valid values: `AWS`, `GCP`, `AZURE`, `SELF_MANAGED`.
 - `cluster_url` (String) Cluster API server URL. Required for agentless Kubernetes.
-- `external_id` (String) External ID for the IAM role (AWS / Kubernetes AWS). Can be updated in-place — rotating credentials does not require recreating the account.
+- `external_id` (String) External ID for the IAM role (AWS / Kubernetes AWS). Can be updated in-place alongside role.
 - `id` (String) Sedai account ID.
 - `is_zonal_cluster` (Boolean) Whether the GKE cluster is zonal (vs regional).
 - `project_id` (String) GCP project ID. Required for GCP and Kubernetes GCP accounts.
 - `region` (String) Cluster region. Used for Kubernetes accounts.
-- `role` (String) IAM role ARN for role-based authentication (AWS / Kubernetes AWS). Can be updated in-place — rotating the IAM role does not require recreating the account.
+- `role` (String) IAM role ARN for role-based authentication (AWS / Kubernetes AWS). Can be updated in-place — rotating credentials does not require recreating the account.
 - `secret_key` (String, Sensitive) AWS secret key for static credential authentication.
 - `service_account_json` (String, Sensitive) GCP service account JSON key. Required for GCP and Kubernetes GCP accounts.
 - `subscription_id` (String) Azure subscription ID. Required for Azure accounts.
@@ -129,9 +129,9 @@ resource "sedai_account" "gke_account" {
 
 ### Read-Only
 
-- `agent_api_key` (String) Agent API key. Populated only for `AGENT_BASED` integration.
-- `create_secret_kubectl_cmd` (String) kubectl command to create the agent secret. Populated only for `AGENT_BASED` integration.
-- `helm_install_cmd` (String) Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration.
-- `kube_install_cmd` (String) kubectl command to install the Sedai agent. Populated only for `AGENT_BASED` integration.
+- `agent_api_key` (String, Sensitive) Agent API key. Populated only for `AGENT_BASED` integration.
+- `create_secret_kubectl_cmd` (String, Sensitive) kubectl command to create the agent secret. Populated only for `AGENT_BASED` integration.
+- `helm_install_cmd` (String, Sensitive) Helm command to install the Sedai agent. Populated only for `AGENT_BASED` integration. Embeds the agent API key — treat as a secret.
+- `kube_install_cmd` (String, Sensitive) kubectl command to install the Sedai agent. Populated only for `AGENT_BASED` integration.
 
 

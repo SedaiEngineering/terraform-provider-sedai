@@ -14,7 +14,7 @@ Creates a Sedai resource group. A group bundles cloud resources matching the fil
 
 ### Required
 
-- `name` (String) Group name. Must be unique within the Sedai tenant.
+- `name` (String) Group name. Must be unique within the Sedai tenant. Cannot contain '/' — use '-' or '_' as a separator instead.
 
 ### Optional
 
