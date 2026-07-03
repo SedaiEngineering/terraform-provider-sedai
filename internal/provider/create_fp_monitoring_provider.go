@@ -367,12 +367,18 @@ func (r *createFpMonitoringProvider) ImportState(ctx context.Context, req resour
 }
 
 func createFpCredentials(plan fpMonitoringProviderModel) interface{} {
-	if plan.BearerToken.String() != "" {
+	// Use IsNull()/IsUnknown() not .String() != "" for null checks.
+	// StringValue.String() returns "<null>" for null values — never "",
+	// so the old checks were always true, routing everything to JWT with
+	// an empty token. ClientCredentials and NoAuth were unreachable code.
+	if !plan.BearerToken.IsNull() && !plan.BearerToken.IsUnknown() && plan.BearerToken.ValueString() != "" {
 		return credentials.NewFederatedPrometheusJWT(plan.BearerToken.ValueString())
 	}
 
-	if plan.TokenEndpoint.String() != "" && plan.ClientID.String() != "" && plan.ClientSecret.String() != "" {
-		return credentials.NewFederatedPrometheusClientCredentials(plan.TokenEndpoint.ValueString(), plan.ClientID.ValueString(), plan.ClientSecret.ValueString())
+	if !plan.TokenEndpoint.IsNull() && !plan.ClientID.IsNull() && !plan.ClientSecret.IsNull() &&
+		plan.TokenEndpoint.ValueString() != "" && plan.ClientID.ValueString() != "" && plan.ClientSecret.ValueString() != "" {
+		return credentials.NewFederatedPrometheusClientCredentials(
+			plan.TokenEndpoint.ValueString(), plan.ClientID.ValueString(), plan.ClientSecret.ValueString())
 	}
 
 	return credentials.NewFederatedPrometheusNoAuth()
