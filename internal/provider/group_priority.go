@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -238,7 +240,17 @@ func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceM
 		})
 	}
 
-	statuses, err := groups.UpdateGroupPriorities(sdkEntries)
+	// TEST HOOK — remove before shipping.
+	// Set SEDAI_TEST_FORCE_PRIORITY_EOF=1 to simulate a connection error.
+	var statuses []groups.GroupPriorityUpdateStatus
+	var err error
+	if os.Getenv("SEDAI_TEST_FORCE_PRIORITY_EOF") == "1" {
+		os.Unsetenv("SEDAI_TEST_FORCE_PRIORITY_EOF")
+		err = fmt.Errorf("API call failed: Post \"priorities\": EOF")
+	} else {
+		statuses, err = groups.UpdateGroupPriorities(sdkEntries)
+	}
+
 	if err != nil {
 		// EOF recovery — check if priorities landed despite the connection drop.
 		// UpdateGroupPriorities is a batch POST; if the response is lost in
