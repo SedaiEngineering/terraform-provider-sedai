@@ -2,11 +2,15 @@ package provider
 
 import (
 	"context"
+	"os"
 
+	impl "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -55,8 +59,52 @@ func (p *sedaiProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 	}
 }
 
-// Configure prepares a HashiCups API client for data sources and resources.
+// Configure reads credentials from the provider HCL block, falls back to
+// environment variables, and pushes the resolved values into the SDK so
+// every resource and data source uses the correct endpoint and token.
 func (p *sedaiProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	var cfg struct {
+		BaseURL  types.String `tfsdk:"base_url"`
+		APIToken types.String `tfsdk:"api_token"`
+	}
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	baseURL  := cfg.BaseURL.ValueString()
+	apiToken := cfg.APIToken.ValueString()
+
+	// HCL takes precedence; fall back to env vars when not set in the block.
+	if baseURL == "" {
+		baseURL = os.Getenv("SEDAI_BASE_URL")
+	}
+	if apiToken == "" {
+		apiToken = os.Getenv("SEDAI_API_TOKEN")
+		if apiToken == "" {
+			apiToken = os.Getenv("SEDAI_API_KEY")
+		}
+	}
+
+	if baseURL == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("base_url"),
+			"Missing Sedai base URL",
+			"Set base_url in the provider block or export SEDAI_BASE_URL in the environment.",
+		)
+	}
+	if apiToken == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("api_token"),
+			"Missing Sedai API token",
+			"Set api_token in the provider block or export SEDAI_API_TOKEN (or SEDAI_API_KEY) in the environment.",
+		)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	impl.SetConfig(baseURL, apiToken)
 }
 
 // DataSources defines the data sources implemented in the provider.

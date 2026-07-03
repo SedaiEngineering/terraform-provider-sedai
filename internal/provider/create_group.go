@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"errors"
+	"regexp"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/impl"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -79,7 +81,13 @@ func (r *group) Schema(_ context.Context, _ resource.SchemaRequest, resp *resour
 			},
 			"name": schema.StringAttribute{
 				Required:    true,
-				Description: "Group name. Must be unique within the Sedai tenant.",
+				Description: "Group name. Must be unique within the Sedai tenant. Cannot contain '/' — use '-' or '_' as a separator instead.",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[^/]+$`),
+						"group name cannot contain '/' — use '-' or '_' as a separator (e.g. 'prod-payments' instead of 'prod/payments')",
+					),
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Optional:    true,
@@ -366,12 +374,22 @@ func applyDefinitionToModel(ctx context.Context, state *groupModel, fetched *gro
 		state.ParentGroupId = basetypes.NewStringNull()
 	}
 
-	state.Clusters = stringsToList(def.Cluster)
-	state.CloudAccountIDs = stringsToList(def.Cloud)
-	state.ResourceTypes = stringsToList(denormalizeResourceTypes(def.ResourceType))
-	state.ResourceIDs = stringsToList(def.ManuallyAddedResources)
-	state.Regions = stringsToList(def.Region)
-	state.Namespaces = stringsToList(def.Namespace)
+	// Optional list fields: only overwrite state from the backend when the
+	// field is already managed (non-null in state). If the user omitted the
+	// field in HCL it is null in state; the backend returns [] for unset
+	// filters, but writing [] would cause a perpetual null→[] plan diff.
+	refreshListIfManaged(&state.Clusters, def.Cluster)
+	refreshListIfManaged(&state.CloudAccountIDs, def.Cloud)
+	refreshListIfManaged(&state.ResourceIDs, def.ManuallyAddedResources)
+	refreshListIfManaged(&state.Regions, def.Region)
+	refreshListIfManaged(&state.Namespaces, def.Namespace)
+
+	// resource_types is always refreshed — it is typically set in HCL and
+	// the backend normalises spelling (KUBERNETES_DEAMONSET alias), so we
+	// need the round-trip value even when the user explicitly set it.
+	if !state.ResourceTypes.IsNull() {
+		state.ResourceTypes = stringsToList(denormalizeResourceTypes(def.ResourceType))
+	}
 
 	if len(def.Tags) == 0 {
 		state.Tags = nil
@@ -448,10 +466,22 @@ func denormalizeResourceTypes(in []string) []string {
 // stringsToList converts a []string back into a Terraform ListValue.
 // Empty/nil input returns an empty list (not null) so that a user writing
 // `namespaces = []` in HCL matches the empty list returned by Read —
-// preventing perpetual `null → []` drift on every plan (BUG-09).
+// preventing perpetual `null → []` drift on every plan.
+// refreshListIfManaged updates a ListValue from a []string only when the
+// current state value is non-null (i.e. the user is managing this field).
+// When state is null (field omitted in HCL), the backend returns [] for
+// unset filters — blindly writing [] would produce a perpetual null→[] diff.
+func refreshListIfManaged(state *basetypes.ListValue, values []string) {
+	if state.IsNull() {
+		return
+	}
+	*state = stringsToList(values)
+}
+
 func stringsToList(values []string) basetypes.ListValue {
 	if len(values) == 0 {
-		return basetypes.NewListNull(types.StringType)
+		lv, _ := basetypes.NewListValueFrom(context.Background(), types.StringType, []basetypes.StringValue{})
+		return lv
 	}
 	elements := make([]basetypes.StringValue, 0, len(values))
 	for _, v := range values {

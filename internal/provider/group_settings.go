@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
@@ -17,8 +18,9 @@ import (
 
 // Ensure interfaces are satisfied.
 var (
-	_ resource.Resource                = &groupSettings{}
-	_ resource.ResourceWithImportState = &groupSettings{}
+	_ resource.Resource                      = &groupSettings{}
+	_ resource.ResourceWithImportState       = &groupSettings{}
+	_ resource.ResourceWithConfigValidators  = &groupSettings{}
 )
 
 // GroupSettings is the resource constructor for `sedai_group_settings`.
@@ -111,6 +113,37 @@ func (r *groupSettings) Schema(_ context.Context, _ resource.SchemaRequest, resp
 	}
 }
 
+// ConfigValidators moves validateTopLevelModeConflicts to plan time so the
+// error surfaces before any resource is created, preventing partial-state
+// failures when the invalid combination is detected mid-apply.
+func (r *groupSettings) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{groupSettingsModeValidator{}}
+}
+
+type groupSettingsModeValidator struct{}
+
+func (v groupSettingsModeValidator) Description(_ context.Context) string {
+	return "Validates that top-level modes are compatible with per-resource-type blocks."
+}
+
+func (v groupSettingsModeValidator) MarkdownDescription(_ context.Context) string {
+	return v.Description(context.Background())
+}
+
+func (v groupSettingsModeValidator) ValidateResource(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var cfg groupSettingsResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := validateTopLevelModeConflicts(
+		cfg.AvailabilityMode.ValueString(), cfg.OptimizationMode.ValueString(),
+		cfg.AppSettings, cfg.BucketSettings, cfg.VolumeSettings, cfg.ServerlessSettings,
+	); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+	}
+}
+
 func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan groupSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -118,21 +151,43 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
-		resp.Diagnostics.AddError("Invalid mode combination", err)
-		return
-	}
+	// Mode conflict validation runs at plan time via ConfigValidators.
 
 	// Settings must be initialized before the first update; the API is a
 	// no-op if already initialized so we always call it from Create.
 	if err := groups.InitializeGroupSettings(plan.GroupID.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Unable to initialize group settings", err.Error())
-		return
+		// Init may have succeeded before the connection dropped — check whether
+		// settings already exist before treating this as a hard failure.
+		existing, _ := groups.GetGroupSettings(plan.GroupID.ValueString())
+		if existing == nil {
+			resp.Diagnostics.AddError("Unable to initialize group settings", err.Error())
+			return
+		}
+		// Settings already exist on the backend — fall through to UpdateGroupSettings.
 	}
 
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set group settings", err.Error())
-		return
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetGroupSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := groups.GetGroupSettings(plan.GroupID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Group settings configured despite connection error",
+					"Settings for group '"+plan.GroupID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set group settings", err.Error())
+			return
+		}
 	}
 
 	plan.ID = plan.GroupID
@@ -173,9 +228,9 @@ func (r *groupSettings) Read(ctx context.Context, req resource.ReadRequest, resp
 	// id mirrors group_id so terraform import can locate this resource.
 	state.ID = state.GroupID
 
-	// Refresh each per-resource-type block ONLY for fields the user is
-	// already managing. Helper handles nil state block (user didn't include
-	// the HCL block) and the field-level partial-spec contract.
+	// Normal read — partial-spec: only refresh blocks the user is managing.
+	// Import context is handled in ImportState (full populate there ensures
+	// sub-blocks are non-nil when Read runs, so this path works correctly).
 	kubeAppSettingsRefresh(state.KubeAppSettings, settings.KubeAppSettings)
 	bucketSettingsRefresh(state.BucketSettings, settings.BucketSettings)
 	appSettingsRefresh(state.AppSettings, settings.AppSettings)
@@ -235,9 +290,33 @@ func (r *groupSettings) Delete(ctx context.Context, req resource.DeleteRequest, 
 // adopt existing settings. The import ID is the group_id; we write it into
 // both `id` (Terraform's synthetic resource identifier) and `group_id` so
 // the subsequent Read call has a non-empty group_id to query.
+// ImportState fully populates state from the backend so the subsequent Read
+// sees non-nil sub-blocks and partial-spec logic works correctly — no extra
+// apply needed after import to stabilize the plan.
 func (r *groupSettings) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), req.ID)...)
+	settings, err := groups.GetGroupSettings(req.ID)
+	if err != nil || settings == nil {
+		// Fall back to minimal state — Read will handle missing settings.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("group_id"), req.ID)...)
+		return
+	}
+
+	var state groupSettingsResourceModel
+	state.ID = basetypes.NewStringValue(req.ID)
+	state.GroupID = basetypes.NewStringValue(req.ID)
+	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
+	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
+	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	state.KubeAppSettings = kubeAppSettingsFromSDK(settings.KubeAppSettings)
+	state.BucketSettings = bucketSettingsFromSDK(settings.BucketSettings)
+	state.AppSettings = appSettingsFromSDK(settings.AppSettings)
+	state.ContainerAppSettings = containerAppSettingsFromSDK(settings.ContainerAppSettings)
+	state.ECSAppSettings = ecsAppSettingsFromSDK(settings.ECSAppSettings)
+	state.ServerlessSettings = serverlessSettingsFromSDK(settings.ServerlessSettings)
+	state.VolumeSettings = volumeSettingsFromSDK(settings.VolumeSettings)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 // The *FromSDK functions below are full-populate mappers used by data sources.
@@ -259,7 +338,7 @@ func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsMode
 		HorizontalScalingEnabled:           nullableBool(s.HorizontalScalingEnabled),
 		HorizontalScalingMinReplicas:       nullableInt64(s.HorizontalScalingMinReplicas),
 		HorizontalScalingMaxReplicas:       nullableInt64(s.HorizontalScalingMaxReplicas),
-		HorizontalScalingReplicaMultiplier: nullableInt64(s.HorizontalScalingReplicaMultiplier),
+		HorizontalScalingReplicaMultiplier: nullableFloat64(s.HorizontalScalingReplicaMultiplier),
 		VerticalScalingEnabled:             nullableBool(s.VerticalScalingEnabled),
 		VerticalScalingMinCPUCores:         nullableFloat64(s.VerticalScalingMinCPUCores),
 		VerticalScalingMinMemoryBytes:      nullableInt64(s.VerticalScalingMinMemoryBytes),

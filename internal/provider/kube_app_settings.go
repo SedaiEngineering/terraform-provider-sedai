@@ -25,7 +25,7 @@ type kubeAppSettingsModel struct {
 	HorizontalScalingEnabled           basetypes.BoolValue    `tfsdk:"horizontal_scaling_enabled"`
 	HorizontalScalingMinReplicas       basetypes.Int64Value   `tfsdk:"horizontal_scaling_min_replicas"`
 	HorizontalScalingMaxReplicas       basetypes.Int64Value   `tfsdk:"horizontal_scaling_max_replicas"`
-	HorizontalScalingReplicaMultiplier basetypes.Int64Value   `tfsdk:"horizontal_scaling_replica_multiplier"`
+	HorizontalScalingReplicaMultiplier basetypes.Float64Value `tfsdk:"horizontal_scaling_replica_multiplier"`
 	VerticalScalingEnabled             basetypes.BoolValue    `tfsdk:"vertical_scaling_enabled"`
 	VerticalScalingMinCPUCores         basetypes.Float64Value `tfsdk:"vertical_scaling_min_cpu_cores"`
 	VerticalScalingMinMemoryBytes      basetypes.Int64Value   `tfsdk:"vertical_scaling_min_memory_bytes"`
@@ -85,9 +85,9 @@ func kubeAppSettingsBlock() schema.SingleNestedBlock {
 				Optional:    true,
 				Description: "Ceiling for replica count when horizontal scaling is enabled.",
 			},
-			"horizontal_scaling_replica_multiplier": schema.Int64Attribute{
+			"horizontal_scaling_replica_multiplier": schema.Float64Attribute{
 				Optional:    true,
-				Description: "Factor by which replicas scale during horizontal events. Kubernetes-specific.",
+				Description: "Factor by which replicas scale during horizontal events (e.g. 1.5 = scale by 50%). Kubernetes-specific.",
 			},
 			"vertical_scaling_enabled": schema.BoolAttribute{
 				Optional:    true,
@@ -140,7 +140,7 @@ func kubeAppSettingsToSDK(m *kubeAppSettingsModel) *sdksettings.KubeAppSettings 
 		HorizontalScalingEnabled:           boolPtr(m.HorizontalScalingEnabled),
 		HorizontalScalingMinReplicas:       int64Ptr(m.HorizontalScalingMinReplicas),
 		HorizontalScalingMaxReplicas:       int64Ptr(m.HorizontalScalingMaxReplicas),
-		HorizontalScalingReplicaMultiplier: int64Ptr(m.HorizontalScalingReplicaMultiplier),
+		HorizontalScalingReplicaMultiplier: float64Ptr(m.HorizontalScalingReplicaMultiplier),
 		VerticalScalingEnabled:             boolPtr(m.VerticalScalingEnabled),
 		VerticalScalingMinCPUCores:         float64Ptr(m.VerticalScalingMinCPUCores),
 		VerticalScalingMinMemoryBytes:      int64Ptr(m.VerticalScalingMinMemoryBytes),
@@ -170,7 +170,7 @@ func kubeAppSettingsRefresh(state *kubeAppSettingsModel, fetched *sdksettings.Ku
 	refreshBoolIfManaged(&state.HorizontalScalingEnabled, fetched.HorizontalScalingEnabled)
 	refreshInt64IfManaged(&state.HorizontalScalingMinReplicas, fetched.HorizontalScalingMinReplicas)
 	refreshInt64IfManaged(&state.HorizontalScalingMaxReplicas, fetched.HorizontalScalingMaxReplicas)
-	refreshInt64IfManaged(&state.HorizontalScalingReplicaMultiplier, fetched.HorizontalScalingReplicaMultiplier)
+	refreshFloat64IfManaged(&state.HorizontalScalingReplicaMultiplier, fetched.HorizontalScalingReplicaMultiplier)
 	refreshBoolIfManaged(&state.VerticalScalingEnabled, fetched.VerticalScalingEnabled)
 	refreshFloat64IfManaged(&state.VerticalScalingMinCPUCores, fetched.VerticalScalingMinCPUCores)
 	refreshInt64IfManaged(&state.VerticalScalingMinMemoryBytes, fetched.VerticalScalingMinMemoryBytes)

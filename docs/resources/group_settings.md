@@ -29,6 +29,10 @@ Manages the top-level settings for a Sedai group. The provider auto-initializes 
 - `serverless_settings` (Block, Optional) Per-resource-type settings for AWS Lambda functions. `optimization_mode` is restricted to DATA_PILOT and AUTO (no CO_PILOT). `concurrency_mode` is Lambda-specific (OFF or AUTO). (see [below for nested schema](#nestedblock--serverless_settings))
 - `volume_settings` (Block, Optional) Per-resource-type settings for AWS EBS volumes. Both `availability_mode` and `optimization_mode` are restricted to `DATA_PILOT` and `CO_PILOT` per spec — no AUTO for volumes. (see [below for nested schema](#nestedblock--volume_settings))
 
+### Read-Only
+
+- `id` (String) Resource identifier (mirrors group_id). Required by Terraform's import mechanism.
+
 <a id="nestedblock--app_settings"></a>
 ### Nested Schema for `app_settings`
 
@@ -106,7 +110,7 @@ Optional:
 - `horizontal_scaling_enabled` (Boolean) Enable horizontal scaling (replica count tuning) for Kubernetes workloads.
 - `horizontal_scaling_max_replicas` (Number) Ceiling for replica count when horizontal scaling is enabled.
 - `horizontal_scaling_min_replicas` (Number) Floor for replica count when horizontal scaling is enabled.
-- `horizontal_scaling_replica_multiplier` (Number) Factor by which replicas scale during horizontal events. Kubernetes-specific.
+- `horizontal_scaling_replica_multiplier` (Number) Factor by which replicas scale during horizontal events (e.g. 1.5 = scale by 50%). Kubernetes-specific.
 - `is_operation_allowed` (Boolean) Master on/off for Sedai actions on Kubernetes workloads in this scope.
 - `is_prod` (Boolean) Mark Kubernetes workloads as production — production allows fewer aggressive optimizations.
 - `max_cpu_increase_pct` (Number) Guardrail: maximum acceptable CPU increase % during optimization.

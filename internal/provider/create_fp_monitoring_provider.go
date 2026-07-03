@@ -206,11 +206,13 @@ func (r *createFpMonitoringProvider) Create(ctx context.Context, req resource.Cr
 	monitoringProviderRequest := createFpMonitoringProviderRequest(plan)
 	response, err := monitoringProvider.AddFederatedPrometheusMonitoring(monitoringProviderRequest)
 	if err != nil {
-		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "FEDERATEDPROMETHEUS"); found != nil {
-			addVerifyWarning(resp, "Federated Prometheus monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
-			plan.ID = basetypes.NewStringValue(found["id"].(string))
-			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-			return
+		if isConnectionError(err) {
+			if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "FEDERATEDPROMETHEUS"); found != nil {
+				addVerifyWarning(resp, "Federated Prometheus monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+				plan.ID = basetypes.NewStringValue(found["id"].(string))
+				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+				return
+			}
 		}
 		resp.Diagnostics.AddError("Unable to create monitoring provider", err.Error())
 		return
@@ -367,12 +369,18 @@ func (r *createFpMonitoringProvider) ImportState(ctx context.Context, req resour
 }
 
 func createFpCredentials(plan fpMonitoringProviderModel) interface{} {
-	if plan.BearerToken.String() != "" {
+	// Use IsNull()/IsUnknown() not .String() != "" for null checks.
+	// StringValue.String() returns "<null>" for null values — never "",
+	// so the old checks were always true, routing everything to JWT with
+	// an empty token. ClientCredentials and NoAuth were unreachable code.
+	if !plan.BearerToken.IsNull() && !plan.BearerToken.IsUnknown() && plan.BearerToken.ValueString() != "" {
 		return credentials.NewFederatedPrometheusJWT(plan.BearerToken.ValueString())
 	}
 
-	if plan.TokenEndpoint.String() != "" && plan.ClientID.String() != "" && plan.ClientSecret.String() != "" {
-		return credentials.NewFederatedPrometheusClientCredentials(plan.TokenEndpoint.ValueString(), plan.ClientID.ValueString(), plan.ClientSecret.ValueString())
+	if !plan.TokenEndpoint.IsNull() && !plan.ClientID.IsNull() && !plan.ClientSecret.IsNull() &&
+		plan.TokenEndpoint.ValueString() != "" && plan.ClientID.ValueString() != "" && plan.ClientSecret.ValueString() != "" {
+		return credentials.NewFederatedPrometheusClientCredentials(
+			plan.TokenEndpoint.ValueString(), plan.ClientID.ValueString(), plan.ClientSecret.ValueString())
 	}
 
 	return credentials.NewFederatedPrometheusNoAuth()

@@ -158,11 +158,13 @@ func (r *createDatadogMonitoringProvider) Create(ctx context.Context, req resour
 	monitoringProviderRequest := createDatadogMonitoringProviderRequest(plan)
 	response, err := monitoringProvider.AddDatadogMonitoring(monitoringProviderRequest)
 	if err != nil {
-		if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "DATADOG"); found != nil {
-			addVerifyWarning(resp, "Datadog monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
-			plan.ID = basetypes.NewStringValue(found["id"].(string))
-			resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-			return
+		if isConnectionError(err) {
+			if found := verifyMonitoringProviderCreated(plan.AccountId.ValueString(), "DATADOG"); found != nil {
+				addVerifyWarning(resp, "Datadog monitoring provider", plan.AccountId.ValueString(), found["id"].(string))
+				plan.ID = basetypes.NewStringValue(found["id"].(string))
+				resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+				return
+			}
 		}
 		resp.Diagnostics.AddError("Unable to create monitoring provider", err.Error())
 		return
@@ -346,6 +348,12 @@ func createDatadogMonitoringProviderRequest(plan datadogMonitoringProviderModel)
 	}
 	if !plan.ClusterDimensions.IsNull() {
 		createDatadogMonitoringProviderRequest.ClusterDimensions = convertFromBaseTypes(plan.ClusterDimensions)
+	}
+	if !plan.AzDimensions.IsNull() {
+		createDatadogMonitoringProviderRequest.AzDimensions = convertFromBaseTypes(plan.AzDimensions)
+	}
+	if !plan.EnvDimensions.IsNull() {
+		createDatadogMonitoringProviderRequest.EnvDimensions = convertFromBaseTypes(plan.EnvDimensions)
 	}
 
 	return createDatadogMonitoringProviderRequest

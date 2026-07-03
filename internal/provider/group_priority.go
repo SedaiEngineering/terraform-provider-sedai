@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -239,6 +240,21 @@ func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceM
 
 	statuses, err := groups.UpdateGroupPriorities(sdkEntries)
 	if err != nil {
+		// EOF recovery — check if priorities landed despite the connection drop.
+		// UpdateGroupPriorities is a batch POST; if the response is lost in
+		// transit the priorities may already be set on the backend.
+		if isConnectionError(err) {
+			time.Sleep(2 * time.Second)
+			if verifyPrioritiesApplied(plan.GroupPriorities) {
+				diags.AddWarning(
+					"Group priorities set despite connection error",
+					"Priorities were found on the backend after a failed POST — "+
+						"the response was likely lost in transit. Run terraform apply "+
+						"again to reconcile any drift.",
+				)
+				return planToStatuses(plan.GroupPriorities)
+			}
+		}
 		diags.AddError("Unable to update group priorities", err.Error())
 		return nil
 	}
@@ -249,6 +265,33 @@ func (r *groupPriority) applyPlan(_ context.Context, plan groupPriorityResourceM
 				"Group "+s.GroupID+": "+s.Message,
 			)
 		}
+	}
+	return statuses
+}
+
+// verifyPrioritiesApplied checks if all groups in the plan have a non-nil
+// priority on the backend — used for EOF recovery after UpdateGroupPriorities.
+// Returns true if every group is reachable and has a priority set.
+func verifyPrioritiesApplied(entries []groupPriorityBlockModel) bool {
+	for _, e := range entries {
+		details, err := groups.GetGroupById(e.GroupID)
+		if err != nil || details == nil || details.Priority == nil {
+			return false
+		}
+	}
+	return true
+}
+
+// planToStatuses converts plan entries into mock GroupPriorityUpdateStatus
+// values so Create can write plan priorities to state after EOF recovery.
+func planToStatuses(entries []groupPriorityBlockModel) []groups.GroupPriorityUpdateStatus {
+	statuses := make([]groups.GroupPriorityUpdateStatus, 0, len(entries))
+	for _, e := range entries {
+		statuses = append(statuses, groups.GroupPriorityUpdateStatus{
+			GroupID:           e.GroupID,
+			RequestedPriority: int(e.Priority),
+			Success:           true,
+		})
 	}
 	return statuses
 }

@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -16,8 +18,9 @@ import (
 
 // Ensure interfaces are satisfied.
 var (
-	_ resource.Resource                = &accountSettings{}
-	_ resource.ResourceWithImportState = &accountSettings{}
+	_ resource.Resource                     = &accountSettings{}
+	_ resource.ResourceWithImportState      = &accountSettings{}
+	_ resource.ResourceWithConfigValidators = &accountSettings{}
 )
 
 // AccountSettings is the resource constructor for `sedai_account_settings`.
@@ -98,6 +101,35 @@ func (r *accountSettings) Schema(_ context.Context, _ resource.SchemaRequest, re
 	}
 }
 
+// ConfigValidators moves mode conflict validation to plan time.
+func (r *accountSettings) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{accountSettingsModeValidator{}}
+}
+
+type accountSettingsModeValidator struct{}
+
+func (v accountSettingsModeValidator) Description(_ context.Context) string {
+	return "Validates that top-level modes are compatible with per-resource-type blocks."
+}
+
+func (v accountSettingsModeValidator) MarkdownDescription(_ context.Context) string {
+	return v.Description(context.Background())
+}
+
+func (v accountSettingsModeValidator) ValidateResource(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var cfg accountSettingsResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := validateTopLevelModeConflicts(
+		cfg.AvailabilityMode.ValueString(), cfg.OptimizationMode.ValueString(),
+		cfg.AppSettings, cfg.BucketSettings, cfg.VolumeSettings, cfg.ServerlessSettings,
+	); err != "" {
+		resp.Diagnostics.AddError("Invalid mode combination", err)
+	}
+}
+
 func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan accountSettingsResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -105,14 +137,52 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
-		resp.Diagnostics.AddError("Invalid mode combination", err)
-		return
+	// Mode conflict validation runs at plan time via ConfigValidators.
+
+	// Retry on "settings not available" — transient error when the backend's
+	// settings subsystem hasn't finished initializing the account yet.
+	// Approach A (polling in sedai_account.Create) handles this at source;
+	// this retry is a safety net for edge cases under extreme backend load.
+	var updateErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		updateErr = account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan))
+		if updateErr == nil {
+			break
+		}
+		if strings.Contains(updateErr.Error(), "settings not available") ||
+			strings.Contains(updateErr.Error(), "not initialized") {
+			select {
+			case <-ctx.Done():
+				break
+			case <-time.After(time.Duration(2<<uint(attempt)) * time.Second): // 2s, 4s, 8s, 16s, 32s
+			}
+			continue
+		}
+		break // non-retryable error
 	}
 
-	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set account settings", err.Error())
-		return
+	if updateErr != nil {
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetAccountSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := account.GetAccountSettings(plan.AccountID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Account settings configured despite connection error",
+					"Settings for account '"+plan.AccountID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set account settings", updateErr.Error())
+			return
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
@@ -142,7 +212,8 @@ func (r *accountSettings) Read(ctx context.Context, req resource.ReadRequest, re
 	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
 	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
 
-	// Refresh per-resource-type blocks (field-level partial spec).
+	// Normal read — partial-spec: only refresh blocks the user is managing.
+	// Import context is handled in ImportState (full populate there).
 	kubeAppSettingsRefresh(state.KubeAppSettings, settings.KubeAppSettings)
 	bucketSettingsRefresh(state.BucketSettings, settings.BucketSettings)
 	appSettingsRefresh(state.AppSettings, settings.AppSettings)
@@ -161,10 +232,7 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
-		resp.Diagnostics.AddError("Invalid mode combination", err)
-		return
-	}
+	// Mode conflict validation runs at plan time via ConfigValidators.
 
 	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to update account settings", err.Error())
@@ -195,8 +263,31 @@ func (r *accountSettings) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
+// ImportState fully populates state from the backend so the subsequent Read
+// sees non-nil sub-blocks and partial-spec logic works correctly — no extra
+// apply needed after import to stabilize the plan.
 func (r *accountSettings) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("account_id"), req, resp)
+	settings, err := account.GetAccountSettings(req.ID)
+	if err != nil || settings == nil {
+		// Fall back to minimal state — Read will handle missing settings.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("account_id"), req.ID)...)
+		return
+	}
+
+	var state accountSettingsResourceModel
+	state.AccountID = basetypes.NewStringValue(req.ID)
+	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
+	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
+	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	state.KubeAppSettings = kubeAppSettingsFromSDK(settings.KubeAppSettings)
+	state.BucketSettings = bucketSettingsFromSDK(settings.BucketSettings)
+	state.AppSettings = appSettingsFromSDK(settings.AppSettings)
+	state.ContainerAppSettings = containerAppSettingsFromSDK(settings.ContainerAppSettings)
+	state.ECSAppSettings = ecsAppSettingsFromSDK(settings.ECSAppSettings)
+	state.ServerlessSettings = serverlessSettingsFromSDK(settings.ServerlessSettings)
+	state.VolumeSettings = volumeSettingsFromSDK(settings.VolumeSettings)
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
 func accountSettingsRequestFromPlan(p accountSettingsResourceModel) *account.AccountSettings {

@@ -2,11 +2,13 @@ package provider
 
 import (
 	"context"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/resource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	tfresource "github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -70,6 +72,8 @@ func (r *resourceSettings) Schema(_ context.Context, _ tfresource.SchemaRequest,
 			},
 			"sedai_sync_enabled": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
 				Description: "When true, Sedai auto-syncs this resource with the latest cloud-side configuration. Defaults to false if omitted.",
 			},
 			"resource_type": schema.StringAttribute{
@@ -91,8 +95,27 @@ func (r *resourceSettings) Create(ctx context.Context, req tfresource.CreateRequ
 	}
 
 	if err := resource.UpdateResourceSettings(plan.ResourceID.ValueString(), resourceSettingsRequestFromPlan(plan)); err != nil {
-		resp.Diagnostics.AddError("Unable to set resource settings", err.Error())
-		return
+		// POST may have been processed before the connection dropped (EOF-during-POST).
+		// Poll GetResourceSettings up to 3 times before treating this as a hard failure.
+		adopted := false
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			existing, fetchErr := resource.GetResourceSettings(plan.ResourceID.ValueString())
+			if fetchErr == nil && existing != nil {
+				resp.Diagnostics.AddWarning(
+					"Resource settings configured despite connection error",
+					"Settings for resource '"+plan.ResourceID.ValueString()+"' were found on the "+
+						"backend after a failed POST — the response was likely lost in transit. "+
+						"Current state adopted; run terraform apply again to reconcile any drift.",
+				)
+				adopted = true
+				break
+			}
+		}
+		if !adopted {
+			resp.Diagnostics.AddError("Unable to set resource settings", err.Error())
+			return
+		}
 	}
 
 	// Read back to populate the computed resource_type from the backend.
@@ -123,7 +146,7 @@ func (r *resourceSettings) Read(ctx context.Context, req tfresource.ReadRequest,
 
 	state.AvailabilityMode = basetypes.NewStringValue(settings.AvailabilityMode)
 	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
-	state.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
+	populateBoolIfUnset(&state.SedaiSyncEnabled, settings.SedaiSyncEnabled)
 	state.ResourceType = basetypes.NewStringValue(settings.ResourceType)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)

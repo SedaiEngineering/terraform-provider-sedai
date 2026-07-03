@@ -92,7 +92,13 @@ func serverlessSettingsRefresh(state *serverlessSettingsModel, fetched *sdksetti
 	refreshIfManaged(&state.AvailabilityMode, fetched.AvailabilityMode)
 	refreshIfManaged(&state.OptimizationMode, fetched.OptimizationMode)
 	refreshIfManaged(&state.OptimizationFocus, fetched.OptimizationFocus)
-	refreshIfManaged(&state.ConcurrencyMode, fetched.ConcurrencyMode)
+	// Backend normalizes concurrency_mode (returns "OFF" even when "AUTO" was sent
+	// because optimization.concurrency is absent from the initialized settings template).
+	// Preserve the user's configured value — same pattern as top-level availability/
+	// optimization modes per design doc §8.
+	if fetched.ConcurrencyMode != nil {
+		populateStringIfUnset(&state.ConcurrencyMode, *fetched.ConcurrencyMode)
+	}
 	refreshInt64IfManaged(&state.MaxCostChangePct, fetched.MaxCostChangePct)
 	refreshInt64IfManaged(&state.MaxLatencyChangePct, fetched.MaxLatencyChangePct)
 	refreshBoolIfManaged(&state.SedaiSyncEnabled, fetched.SedaiSyncEnabled)

@@ -22,7 +22,7 @@ func dataSourceKubeAppSettingsBlock() dsschema.SingleNestedBlock {
 			"horizontal_scaling_enabled":            dsschema.BoolAttribute{Computed: true},
 			"horizontal_scaling_min_replicas":       dsschema.Int64Attribute{Computed: true},
 			"horizontal_scaling_max_replicas":       dsschema.Int64Attribute{Computed: true},
-			"horizontal_scaling_replica_multiplier": dsschema.Int64Attribute{Computed: true},
+			"horizontal_scaling_replica_multiplier": dsschema.Float64Attribute{Computed: true},
 			"vertical_scaling_enabled":              dsschema.BoolAttribute{Computed: true},
 			"vertical_scaling_min_cpu_cores":        dsschema.Float64Attribute{Computed: true},
 			"vertical_scaling_min_memory_bytes":     dsschema.Int64Attribute{Computed: true},
