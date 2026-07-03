@@ -301,18 +301,21 @@ func createGkeMonitoringProviderRequest(plan gkeMonitoringProviderModel) monitor
 	createGkeMonitoringProviderRequest := monitoringProvider.CreateGKEMonitoringProviderRequest{
 		AccountId:   plan.AccountId.ValueString(),
 		ProjectId:   plan.ProjectId.ValueString(),
-		Credentials: credentials.NewGKEMonitoringCredentials(plan.ServiceAccountJson.String()),
+		Credentials: credentials.NewGKEMonitoringCredentials(plan.ServiceAccountJson.ValueString()),
+		// .ValueString() returns the raw string — .String() returns the Go stringer
+		// representation ("%q" format: doubly-quoted, inner quotes escaped), which is
+		// not valid JSON and causes GCP to silently reject the credentials.
 	}
 
 	// for updates
-	if plan.ID.String() != "" {
+	if !plan.ID.IsNull() && !plan.ID.IsUnknown() && plan.ID.ValueString() != "" {
 		createGkeMonitoringProviderRequest.ID = plan.ID.ValueString()
 	}
 
-	if plan.Name.String() != "" {
+	if !plan.Name.IsNull() && !plan.Name.IsUnknown() && plan.Name.ValueString() != "" {
 		createGkeMonitoringProviderRequest.Name = plan.Name.ValueString()
 	}
-	if plan.IntegrationType.String() != "" {
+	if !plan.IntegrationType.IsNull() && !plan.IntegrationType.IsUnknown() && plan.IntegrationType.ValueString() != "" {
 		createGkeMonitoringProviderRequest.IntegrationType = plan.IntegrationType.ValueString()
 	}
 	if !plan.LbDimensions.IsNull() {
