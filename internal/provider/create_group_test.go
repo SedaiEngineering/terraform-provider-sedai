@@ -317,16 +317,23 @@ func TestListToStrings_NullAndUnknown(t *testing.T) {
 	}
 }
 
-// TestStringsToList_Empty verifies that []string{} becomes a typed-null list,
-// so Terraform doesn't see drift between an unset field and an empty list.
+// TestStringsToList_Empty verifies that nil/empty input returns an empty list
+// (not null) so that `namespaces = []` in HCL matches what Read returns,
+// preventing perpetual null→[] drift on every plan.
 func TestStringsToList_Empty(t *testing.T) {
 	lv := stringsToList(nil)
-	if !lv.IsNull() {
-		t.Errorf("nil input: want null list, got %v", lv)
+	if lv.IsNull() {
+		t.Errorf("nil input: want empty list (not null), got null")
+	}
+	if len(lv.Elements()) != 0 {
+		t.Errorf("nil input: want 0 elements, got %d", len(lv.Elements()))
 	}
 	lv = stringsToList([]string{})
-	if !lv.IsNull() {
-		t.Errorf("empty input: want null list, got %v", lv)
+	if lv.IsNull() {
+		t.Errorf("empty input: want empty list (not null), got null")
+	}
+	if len(lv.Elements()) != 0 {
+		t.Errorf("empty input: want 0 elements, got %d", len(lv.Elements()))
 	}
 }
 

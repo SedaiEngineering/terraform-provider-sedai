@@ -456,10 +456,11 @@ func denormalizeResourceTypes(in []string) []string {
 // stringsToList converts a []string back into a Terraform ListValue.
 // Empty/nil input returns an empty list (not null) so that a user writing
 // `namespaces = []` in HCL matches the empty list returned by Read —
-// preventing perpetual `null → []` drift on every plan (BUG-09).
+// preventing perpetual `null → []` drift on every plan.
 func stringsToList(values []string) basetypes.ListValue {
 	if len(values) == 0 {
-		return basetypes.NewListNull(types.StringType)
+		lv, _ := basetypes.NewListValueFrom(context.Background(), types.StringType, []basetypes.StringValue{})
+		return lv
 	}
 	elements := make([]basetypes.StringValue, 0, len(values))
 	for _, v := range values {
