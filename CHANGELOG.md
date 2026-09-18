@@ -1,3 +1,13 @@
+## 2.0.1
+
+### NOTES
+
+* `sedai_group_settings`: `optimization_mode` docs now warn to use `sedai_resource_settings`
+  instead.
+* Bumped `sedai-sdk-go` dependency to v1.3.2.
+
+---
+
 ## 2.0.0
 
 ### MIGRATION GUIDE — What to change in your existing Terraform templates
