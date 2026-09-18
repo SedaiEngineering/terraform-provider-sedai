@@ -88,7 +88,7 @@ func (r *groupSettings) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"optimization_mode": schema.StringAttribute{
 				Required:    true,
-				Description: "Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.",
+				Description: "Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. **Warning:** use `sedai_resource_settings` to set `optimization_mode` instead.",
 				Validators:  []validator.String{settingsConfigModeValidator()},
 			},
 			"sedai_sync_enabled": schema.BoolAttribute{

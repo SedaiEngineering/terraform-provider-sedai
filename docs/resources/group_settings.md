@@ -16,7 +16,7 @@ Manages the top-level settings for a Sedai group. The provider auto-initializes 
 
 - `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 - `group_id` (String) The ID of the group to configure. Typically `sedai_group.<name>.id`.
-- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
+- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. **Warning:** use `sedai_resource_settings` to set `optimization_mode` instead.
 
 ### Optional
 
