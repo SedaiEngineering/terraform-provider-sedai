@@ -3,7 +3,7 @@ module terraform-provider-sedai
 go 1.25.8
 
 require (
-	github.com/SedaiEngineering/sedai-sdk-go v1.3.2
+	github.com/SedaiEngineering/sedai-sdk-go v1.3.3
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0

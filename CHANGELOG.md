@@ -1,10 +1,10 @@
-## 2.0.1
+## 2.0.2
 
 ### NOTES
 
 * `sedai_group_settings`: `optimization_mode` docs now warn to use `sedai_resource_settings`
   instead.
-* Bumped `sedai-sdk-go` dependency to v1.3.2.
+* Bumped `sedai-sdk-go` dependency to v1.3.3.
 
 ---
 
