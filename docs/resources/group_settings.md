@@ -16,7 +16,28 @@ Manages the top-level settings for a Sedai group. The provider auto-initializes 
 
 - `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 - `group_id` (String) The ID of the group to configure. Typically `sedai_group.<name>.id`.
-- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. **Warning:** use `sedai_resource_settings` to set `optimization_mode` instead.
+- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. 
+
+**Note:** 
+Settings can be applied globally across an entire group or tailored to specific resource types using sedai_resource_settings
+
+Group Mode: Top-level selection updates every supported resource type in the group.
+Resource Customization: Nested resource blocks override top-level selections for that specific resource type only.
+
+When updating settings for a specific resource type, retain the existing group-level values in the outer fields unless you intentionally mean to change the mode across all other resource types in the group.
+{
+  "group_id": id,
+
+  // Group Level: Retain these values when updating a single resource type
+  "availability_mode": "DATA_PILOT",
+  "optimization_mode": "DATA_PILOT",
+
+  // Resource Customization: Overrides settings ONLY for Serverless resources
+  "serverless_settings": {
+    "optimization_mode": "AUTO",
+    "availability_mode": "AUTO"
+  }
+}
 
 ### Optional
 
