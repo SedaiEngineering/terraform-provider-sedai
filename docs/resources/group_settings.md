@@ -16,7 +16,48 @@ Manages the top-level settings for a Sedai group. The provider auto-initializes 
 
 - `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 - `group_id` (String) The ID of the group to configure. Typically `sedai_group.<name>.id`.
-- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. **Warning:** use `sedai_resource_settings` to set `optimization_mode` instead.
+- `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`. 
+
+Top-level `availability_mode` and `optimization_mode` fields set the group-wide default. They apply automatically to every resource type in the group.
+Defining a nested resource-type block (such as serverless_settings or kubernetes_settings) overrides the group default for that specific resource type only. Any resource type without a nested block continues to inherit the group-wide default.
+
+**Note:**
+Retain top-level values when updating a single resource type: Top-level fields control the default mode for all unconfigured resource types in the group. Modifying top-level values will change every other resource type in the group at the same time.
+
+Examples
+
+Correct: Customizing a Single Resource Type
+The group baseline remains DATA_PILOT. Only serverless resource types are updated to AUTO.
+
+ {
+  group_id = sedai_group.id
+
+  // Group-wide default — retained intentionally
+  availability_mode = "DATA_PILOT"
+  optimization_mode = "DATA_PILOT"
+
+  // Applies ONLY to serverless resource types
+  serverless_settings {
+    availability_mode = "AUTO"
+    optimization_mode = "AUTO"
+  }
+}
+
+Incorrect: Unintended Group-Wide Change
+This sets every resource type in the group to AUTO. The nested block is rendered redundant, and all other resource types are unexpectedly modified.
+
+ {
+  group_id = sedai_group.id
+
+  // BAD: Changes EVERY resource type in the group to AUTO
+  availability_mode = "AUTO"
+  optimization_mode = "AUTO"
+
+  serverless_settings {
+    availability_mode = "AUTO"
+    optimization_mode = "AUTO"
+  }
+}
 
 ### Optional
 
