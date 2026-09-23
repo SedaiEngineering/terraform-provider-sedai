@@ -18,27 +18,46 @@ Manages the top-level settings for a Sedai account. Applies as the baseline defa
 - `availability_mode` (String) Availability mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 - `optimization_mode` (String) Optimization mode. Valid values: `DATA_PILOT`, `CO_PILOT`, `AUTO`.
 
-**Note:** 
-Settings can be applied globally across an entire account or tailored to specific resource types using sedai_resource_settings
+Top-level `availability_mode` and `optimization_mode` fields set the account-wide default. They apply automatically to every resource type in the account.
+Defining a nested resource-type block (such as serverless_settings or kubernetes_settings) overrides the account default for that specific resource type only. Any resource type without a nested block continues to inherit the account-wide default.
 
-Account Mode: Top-level selection updates every supported resource type in the account.
-Resource Customization: Nested resource blocks override top-level selections for that specific resource type only.
+**Note:**
+Retain top-level values when updating a single resource type: Top-level fields control the default mode for all unconfigured resource types in the account. Modifying top-level values will change every other resource type in the account at the same time.
 
-When updating settings for a specific resource type, retain the existing account-level values in the outer fields unless you intentionally mean to change the mode across all other resource types in the account.
-{
-  "account_id": = sedai_account.{id},
+Examples
 
-  // Group Level: Retain these values when updating a single resource type
-  "availability_mode": "DATA_PILOT",
-  "optimization_mode": "DATA_PILOT",
+Correct: Customizing a Single Resource Type
+The account baseline remains DATA_PILOT. Only serverless resource types are updated to AUTO.
 
-  // Resource Customization: Overrides settings ONLY for Serverless resources
-  "serverless_settings": {
-    "optimization_mode": "AUTO",
-    "availability_mode": "AUTO"
-  }
+ {
+  account_id = sedai_account.id
+
+  // Account-wide default — retained intentionally
+  availability_mode = "DATA_PILOT"
+  optimization_mode = "DATA_PILOT"
+
+  // Applies ONLY to serverless resource types
+  serverless_settings {
+    availability_mode = "AUTO"
+    optimization_mode = "AUTO"
+  }
 }
 
+Incorrect: Unintended Account-Wide Change
+This sets every resource type in the account to AUTO. The nested block is rendered redundant, and all other resource types are unexpectedly modified.
+
+ {
+  account_id = sedai_account.id
+
+  // BAD: Changes EVERY resource type in the account to AUTO
+  availability_mode = "AUTO"
+  optimization_mode = "AUTO"
+
+  serverless_settings {
+    availability_mode = "AUTO"
+    optimization_mode = "AUTO"
+  }
+}
 ### Optional
 
 - `app_settings` (Block, Optional) Per-resource-type settings for generic application workloads. Modes are limited to `DATA_PILOT` and `CO_PILOT` per spec — for AUTO, use a more specific block (kube_app_settings, ecs_app_settings, …). (see [below for nested schema](#nestedblock--app_settings))
