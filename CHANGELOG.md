@@ -1,3 +1,11 @@
+## 2.0.3
+
+### NOTES
+
+* Bumped `sedai-sdk-go` dependency to v1.3.4.
+
+---
+
 ## 2.0.2
 
 ### NOTES
