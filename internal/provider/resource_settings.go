@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/aggressionmode"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/constants"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/resource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	tfresource "github.com/hashicorp/terraform-plugin-framework/resource"
@@ -43,6 +46,7 @@ type resourceSettingsModel struct {
 	OptimizationMode basetypes.StringValue `tfsdk:"optimization_mode"`
 	SedaiSyncEnabled basetypes.BoolValue   `tfsdk:"sedai_sync_enabled"`
 	ResourceType     basetypes.StringValue `tfsdk:"resource_type"`
+	AggressionMode   basetypes.StringValue `tfsdk:"aggression_mode"`
 }
 
 func (r *resourceSettings) Metadata(_ context.Context, req tfresource.MetadataRequest, resp *tfresource.MetadataResponse) {
@@ -76,6 +80,11 @@ func (r *resourceSettings) Schema(_ context.Context, _ tfresource.SchemaRequest,
 				Default:     booldefault.StaticBool(false),
 				Description: "When true, Sedai auto-syncs this resource with the latest cloud-side configuration. Defaults to false if omitted.",
 			},
+			"aggression_mode": schema.StringAttribute{
+				Optional:    true,
+				Description: aggressionModeDescription("this resource (Kubernetes and ECS resources only)", "`PROD`, `EXPEDITE`, `TURBO` (`TURBO` is Kubernetes only, checked against the resource's type at apply time)", "the CPU and memory limits and, on ECS, the replica settings"),
+				Validators:  []validator.String{aggressionModeValidator()},
+			},
 			"resource_type": schema.StringAttribute{
 				Computed:    true,
 				Description: "Backend-detected resource type (e.g. `KubernetesAppResourceSettingDetail`, `ServerlessFunctionResourceSettingDetail`). Populated from the API response — read-only.",
@@ -91,6 +100,11 @@ func (r *resourceSettings) Create(ctx context.Context, req tfresource.CreateRequ
 	var plan resourceSettingsModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := switchResourceAggressionMode(plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set resource aggression mode", err.Error())
 		return
 	}
 
@@ -148,6 +162,7 @@ func (r *resourceSettings) Read(ctx context.Context, req tfresource.ReadRequest,
 	state.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
 	populateBoolIfUnset(&state.SedaiSyncEnabled, settings.SedaiSyncEnabled)
 	state.ResourceType = basetypes.NewStringValue(settings.ResourceType)
+	refreshResourceAggressionMode(&state.AggressionMode, settings.AggressionMode)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
@@ -156,6 +171,11 @@ func (r *resourceSettings) Update(ctx context.Context, req tfresource.UpdateRequ
 	var plan resourceSettingsModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := switchResourceAggressionMode(plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set resource aggression mode", err.Error())
 		return
 	}
 
@@ -212,6 +232,38 @@ func (r *resourceSettings) refreshFromBackend(state *resourceSettingsModel, diag
 	} else {
 		state.ResourceType = basetypes.NewStringValue("")
 	}
+}
+
+// switchResourceAggressionMode switches the resource's aggression mode to
+// the planned one before the settings save. The SDK refuses TURBO on a
+// resource that isn't Kubernetes before sending anything.
+func switchResourceAggressionMode(p resourceSettingsModel) error {
+	wanted := stringPtr(p.AggressionMode)
+	if wanted == nil {
+		return nil
+	}
+	resourceID := p.ResourceID.ValueString()
+	current, err := resource.GetResourceSettings(resourceID)
+	if err != nil {
+		return fmt.Errorf("could not read the current aggression mode of resource %s: %w", resourceID, err)
+	}
+	if current != nil && current.AggressionMode == *wanted {
+		return nil
+	}
+	if err := aggressionmode.SetResourceMode(resourceID, constants.AggressionMode(*wanted)); err != nil {
+		return withSwitchHint(err)
+	}
+	return nil
+}
+
+// refreshResourceAggressionMode copies the backend's mode into state when
+// the user manages it. An empty backend value (not Kubernetes or ECS) is
+// kept as "" so the plan shows the mismatch instead of hiding it.
+func refreshResourceAggressionMode(state *basetypes.StringValue, fetched string) {
+	if state.IsNull() || state.IsUnknown() {
+		return
+	}
+	*state = basetypes.NewStringValue(fetched)
 }
 
 func resourceSettingsRequestFromPlan(p resourceSettingsModel) *resource.ResourceSettings {

@@ -36,6 +36,9 @@ type ecsAppSettingsModel struct {
 	HorizontalScalingReplicaIncrement basetypes.Int64Value `tfsdk:"horizontal_scaling_replica_increment"`
 	VerticalScalingMinCPU             basetypes.Int64Value `tfsdk:"vertical_scaling_min_cpu"`
 	VerticalScalingMinMemory          basetypes.Int64Value `tfsdk:"vertical_scaling_min_memory"`
+
+	// AggressionMode is switched, never saved: ecsAppSettingsToSDK skips it.
+	AggressionMode basetypes.StringValue `tfsdk:"aggression_mode"`
 }
 
 // ecsAppSettingsBlock returns the schema for `ecs_app_settings { … }`.
@@ -60,6 +63,11 @@ func ecsAppSettingsBlock() schema.SingleNestedBlock {
 	attrs["horizontal_scaling_replica_increment"] = schema.Int64Attribute{Optional: true, Description: "Fixed number of tasks added or removed per scaling event."}
 	attrs["vertical_scaling_min_cpu"] = schema.Int64Attribute{Optional: true, Description: "Floor for CPU per task. ECS units (1024 = 1 vCPU)."}
 	attrs["vertical_scaling_min_memory"] = schema.Int64Attribute{Optional: true, Description: "Floor for memory per task, in MB."}
+	attrs["aggression_mode"] = schema.StringAttribute{
+		Optional:    true,
+		Description: aggressionModeDescription("ECS services", "`PROD`, `EXPEDITE` (`TURBO` is Kubernetes only)", "`vertical_scaling_min_cpu`, `vertical_scaling_min_memory` and the replica settings"),
+		Validators:  ecsAggressionModeValidators(),
+	}
 
 	return schema.SingleNestedBlock{
 		Description: "Per-resource-type settings for AWS ECS service workloads.",
@@ -122,5 +130,6 @@ func ecsAppSettingsRefresh(state *ecsAppSettingsModel, fetched *sdksettings.ECSA
 	refreshInt64IfManaged(&state.HorizontalScalingReplicaIncrement, fetched.HorizontalScalingReplicaIncrement)
 	refreshInt64IfManaged(&state.VerticalScalingMinCPU, fetched.VerticalScalingMinCPU)
 	refreshInt64IfManaged(&state.VerticalScalingMinMemory, fetched.VerticalScalingMinMemory)
+	refreshIfManaged(&state.AggressionMode, fetched.AggressionMode)
 	return state
 }

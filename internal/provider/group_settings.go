@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/aggressionmode"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/constants"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -142,6 +145,9 @@ func (v groupSettingsModeValidator) ValidateResource(ctx context.Context, req re
 	); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 	}
+	for _, msg := range validateAggressionModeConflicts(cfg.KubeAppSettings, cfg.ECSAppSettings) {
+		resp.Diagnostics.AddError("Invalid is_prod and aggression_mode combination", msg)
+	}
 }
 
 func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -164,6 +170,11 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 			return
 		}
 		// Settings already exist on the backend — fall through to UpdateGroupSettings.
+	}
+
+	if err := switchGroupAggressionModes(plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set group aggression mode", err.Error())
+		return
 	}
 
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
@@ -251,6 +262,11 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
+		return
+	}
+
+	if err := switchGroupAggressionModes(plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set group aggression mode", err.Error())
 		return
 	}
 
@@ -346,6 +362,7 @@ func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsMode
 		MaxLatencyIncreasePct:              nullableInt64(s.MaxLatencyIncreasePct),
 		MaxCPUIncreasePct:                  nullableInt64(s.MaxCPUIncreasePct),
 		MaxMemoryIncreasePct:               nullableInt64(s.MaxMemoryIncreasePct),
+		AggressionMode:                     nullableString(s.AggressionMode),
 	}
 }
 
@@ -418,6 +435,7 @@ func ecsAppSettingsFromSDK(s *sdksettings.ECSAppSettings) *ecsAppSettingsModel {
 		HorizontalScalingReplicaIncrement: nullableInt64(s.HorizontalScalingReplicaIncrement),
 		VerticalScalingMinCPU:             nullableInt64(s.VerticalScalingMinCPU),
 		VerticalScalingMinMemory:          nullableInt64(s.VerticalScalingMinMemory),
+		AggressionMode:                    nullableString(s.AggressionMode),
 	}
 }
 
@@ -445,6 +463,35 @@ func volumeSettingsFromSDK(s *sdksettings.VolumeSettings) *volumeSettingsModel {
 		OptimizationMode: nullableString(s.OptimizationMode),
 		SedaiSyncEnabled: nullableBool(s.SedaiSyncEnabled),
 	}
+}
+
+// switchGroupAggressionModes switches the group's Kubernetes and ECS
+// aggression modes to the planned ones, before the settings save (see
+// switchAccountAggressionModes).
+func switchGroupAggressionModes(p groupSettingsResourceModel) error {
+	if !wantedAggressionModes(p.KubeAppSettings, p.ECSAppSettings) {
+		return nil
+	}
+	groupID := p.GroupID.ValueString()
+	current, err := groups.GetGroupSettings(groupID)
+	if err != nil {
+		return fmt.Errorf("could not read the current aggression mode of group %s: %w", groupID, err)
+	}
+	if current == nil {
+		return fmt.Errorf("group %s has no settings yet, so its aggression mode can't be switched; run terraform apply again", groupID)
+	}
+	var curKube, curECS *string
+	if current.KubeAppSettings != nil {
+		curKube = current.KubeAppSettings.AggressionMode
+	}
+	if current.ECSAppSettings != nil {
+		curECS = current.ECSAppSettings.AggressionMode
+	}
+	switches := pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)
+	return applyAggressionModeSwitches(switches,
+		func(rt constants.AggressionModeResourceType, mode constants.AggressionMode) error {
+			return aggressionmode.SetGroupMode(groupID, rt, mode)
+		})
 }
 
 func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSettings {

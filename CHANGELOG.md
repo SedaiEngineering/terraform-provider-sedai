@@ -1,3 +1,28 @@
+## Unreleased
+
+### FEATURES
+
+* `sedai_account_settings`, `sedai_group_settings`: new `aggression_mode` in `kube_app_settings`
+  (`PROD`, `EXPEDITE`, `TURBO`) and `ecs_app_settings` (`PROD`, `EXPEDITE`). Turbo is
+  "Speed" in the Sedai UI. Needs Sedai 1.148+ and an admin-role API key (SED-24715).
+* `sedai_resource_settings`: new top-level `aggression_mode`. `TURBO` is refused for
+  resources that are not Kubernetes, before anything is sent.
+* Data sources `sedai_account_settings`, `sedai_group_settings` and `sedai_resource_settings`
+  return `aggression_mode`.
+
+### NOTES
+
+* A mode change is applied as a switch before the other settings are saved. The switch resets
+  the CPU and memory floors (and ECS replica defaults) to the mode's defaults; values set in the
+  same block are written after it, so the next plan shows no drift. An unchanged mode is not
+  switched again. Destroy leaves the mode as it is.
+* `is_prod` and `aggression_mode` in the same block must agree (`is_prod = true` only with
+  `PROD`); a conflict fails at plan time. Configs that set only `is_prod` behave as before.
+* Bumped `sedai-sdk-go` to the SED-24714 merge commit (`14a3d2a`).
+  **TODO before release:** replace with the v1.4.0 tag.
+
+---
+
 ## 2.0.3
 
 ### NOTES
