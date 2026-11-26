@@ -172,12 +172,19 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		// Settings already exist on the backend — fall through to UpdateGroupSettings.
 	}
 
-	if err := switchGroupAggressionModes(plan); err != nil {
+	switched, err := switchGroupAggressionModes(ctx, plan)
+	if err != nil {
 		resp.Diagnostics.AddError("Unable to set group aggression mode", err.Error())
 		return
 	}
 
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
+		// Only a dropped connection can hide a save that worked. Any other
+		// error is real, and after a mode switch adopting would hide it.
+		if !isConnectionError(err) {
+			resp.Diagnostics.AddError("Unable to set group settings", err.Error())
+			return
+		}
 		// POST may have been processed before the connection dropped (EOF-during-POST).
 		// Poll GetGroupSettings up to 3 times before treating this as a hard failure.
 		adopted := false
@@ -197,6 +204,13 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		}
 		if !adopted {
 			resp.Diagnostics.AddError("Unable to set group settings", err.Error())
+			return
+		}
+	}
+
+	if switched {
+		if err := verifyAggressionModesSaved(ctx, "group "+plan.GroupID.ValueString(), groupModesInPlace(plan)); err != nil {
+			resp.Diagnostics.AddError("Group aggression mode reverted", err.Error())
 			return
 		}
 	}
@@ -265,7 +279,8 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
-	if err := switchGroupAggressionModes(plan); err != nil {
+	switched, err := switchGroupAggressionModes(ctx, plan)
+	if err != nil {
 		resp.Diagnostics.AddError("Unable to set group aggression mode", err.Error())
 		return
 	}
@@ -273,6 +288,13 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to update group settings", err.Error())
 		return
+	}
+
+	if switched {
+		if err := verifyAggressionModesSaved(ctx, "group "+plan.GroupID.ValueString(), groupModesInPlace(plan)); err != nil {
+			resp.Diagnostics.AddError("Group aggression mode reverted", err.Error())
+			return
+		}
 	}
 
 	plan.ID = plan.GroupID
@@ -468,30 +490,43 @@ func volumeSettingsFromSDK(s *sdksettings.VolumeSettings) *volumeSettingsModel {
 // switchGroupAggressionModes switches the group's Kubernetes and ECS
 // aggression modes to the planned ones, before the settings save (see
 // switchAccountAggressionModes).
-func switchGroupAggressionModes(p groupSettingsResourceModel) error {
+func switchGroupAggressionModes(ctx context.Context, p groupSettingsResourceModel) (bool, error) {
 	if !wantedAggressionModes(p.KubeAppSettings, p.ECSAppSettings) {
-		return nil
+		return false, nil
 	}
 	groupID := p.GroupID.ValueString()
 	current, err := groups.GetGroupSettings(groupID)
 	if err != nil {
-		return fmt.Errorf("could not read the current aggression mode of group %s: %w", groupID, err)
+		return false, fmt.Errorf("could not read the current aggression mode of group %s: %w", groupID, err)
 	}
 	if current == nil {
-		return fmt.Errorf("group %s has no settings yet, so its aggression mode can't be switched; run terraform apply again", groupID)
+		return false, fmt.Errorf("group %s has no settings yet, so its aggression mode can't be switched; run terraform apply again", groupID)
 	}
-	var curKube, curECS *string
-	if current.KubeAppSettings != nil {
-		curKube = current.KubeAppSettings.AggressionMode
-	}
-	if current.ECSAppSettings != nil {
-		curECS = current.ECSAppSettings.AggressionMode
-	}
+	curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
 	switches := pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)
-	return applyAggressionModeSwitches(switches,
+	if len(switches) == 0 {
+		return false, nil
+	}
+	if err := applyAggressionModeSwitches(switches,
 		func(rt constants.AggressionModeResourceType, mode constants.AggressionMode) error {
 			return aggressionmode.SetGroupMode(groupID, rt, mode)
-		})
+		}); err != nil {
+		return false, err
+	}
+	return true, awaitAggressionModes(ctx, "group "+groupID, groupModesInPlace(p))
+}
+
+// groupModesInPlace reports whether the group's live modes are the planned
+// ones.
+func groupModesInPlace(p groupSettingsResourceModel) func() (bool, error) {
+	return func() (bool, error) {
+		current, err := groups.GetGroupSettings(p.GroupID.ValueString())
+		if err != nil || current == nil {
+			return false, err
+		}
+		curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
+		return len(pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)) == 0, nil
+	}
 }
 
 func groupSettingsRequestFromPlan(p groupSettingsResourceModel) *groups.GroupSettings {

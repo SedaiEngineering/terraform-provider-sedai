@@ -3,8 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/constants"
+	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -56,6 +58,8 @@ func aggressionModeDescription(what, valid, guardrails string) string {
 		"(Data Pilot / Co-Pilot / Autopilot). A change is applied as a mode switch, before the other settings "+
 		"are saved: the switch resets %s to the mode's defaults (a value set in this block is written again "+
 		"after it), and turns autonomous action without traffic on for EXPEDITE and TURBO and off for PROD. "+
+		"If the save fails after the switch, the apply fails and the mode's default guardrails stay until the "+
+		"next apply, which writes the configured values again without switching. "+
 		"Must agree with `is_prod` when both are set (`is_prod = true` only with `PROD`). Needs Sedai 1.148 or "+
 		"later and an admin-role API key. Destroying the resource leaves the mode as it is.", what, valid, guardrails)
 }
@@ -156,4 +160,86 @@ func applyAggressionModeSwitches(switches []aggressionModeSwitch, set func(const
 
 func withSwitchHint(err error) error {
 	return fmt.Errorf("%w. %s", err, aggressionModeSwitchHint)
+}
+
+// settleTiming controls the wait after a switch and the check after the save.
+type settleTiming struct {
+	interval, timeout time.Duration
+	reads             int // matching reads in a row before saving
+	verifyInterval    time.Duration
+	verifyReads       int // reads after the save; any mismatch fails
+}
+
+// Each Sedai API pod keeps its own near cache of settings. After a switch,
+// another pod can return the settings from before it for about 10 s, and
+// the SDK's save posts back the settings it read, so a stale read writes the
+// old mode back. Seven matching reads 2 s apart span that window. A var so
+// tests can shorten it.
+var aggressionModeSettle = settleTiming{
+	interval: 2 * time.Second, timeout: 90 * time.Second, reads: 7,
+	verifyInterval: time.Second, verifyReads: 3,
+}
+
+// awaitAggressionModes waits until inPlace reports the planned modes on
+// aggressionModeSettle.reads reads in a row.
+func awaitAggressionModes(ctx context.Context, what string, inPlace func() (bool, error)) error {
+	deadline := time.Now().Add(aggressionModeSettle.timeout)
+	for streak := 0; ; {
+		ok, err := inPlace()
+		if err != nil {
+			return fmt.Errorf("could not read back the aggression mode of %s after the switch: %w", what, err)
+		}
+		if ok {
+			streak++
+		} else {
+			streak = 0
+		}
+		if streak >= aggressionModeSettle.reads {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("Sedai still returns the previous aggression mode of %s %s after the switch, "+
+				"so the other settings were not saved; run terraform apply again", what, aggressionModeSettle.timeout)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(aggressionModeSettle.interval):
+		}
+	}
+}
+
+// verifyAggressionModesSaved fails if any read after the save shows another
+// mode: the save then wrote back settings cached before the switch.
+func verifyAggressionModesSaved(ctx context.Context, what string, inPlace func() (bool, error)) error {
+	for i := 0; i < aggressionModeSettle.verifyReads; i++ {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(aggressionModeSettle.verifyInterval):
+			}
+		}
+		ok, err := inPlace()
+		if err != nil {
+			return fmt.Errorf("could not read back the aggression mode of %s after the save: %w", what, err)
+		}
+		if !ok {
+			return fmt.Errorf("the settings save restored the previous aggression mode of %s: Sedai returned "+
+				"settings cached before the switch. Run terraform apply again", what)
+		}
+	}
+	return nil
+}
+
+// sectionModes returns the current Kubernetes and ECS modes of a settings
+// response; nil when a section is missing.
+func sectionModes(kube *sdksettings.KubeAppSettings, ecs *sdksettings.ECSAppSettings) (curKube, curECS *string) {
+	if kube != nil {
+		curKube = kube.AggressionMode
+	}
+	if ecs != nil {
+		curECS = ecs.AggressionMode
+	}
+	return curKube, curECS
 }

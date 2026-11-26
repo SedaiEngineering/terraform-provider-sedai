@@ -103,12 +103,19 @@ func (r *resourceSettings) Create(ctx context.Context, req tfresource.CreateRequ
 		return
 	}
 
-	if err := switchResourceAggressionMode(plan); err != nil {
+	switched, err := switchResourceAggressionMode(ctx, plan)
+	if err != nil {
 		resp.Diagnostics.AddError("Unable to set resource aggression mode", err.Error())
 		return
 	}
 
 	if err := resource.UpdateResourceSettings(plan.ResourceID.ValueString(), resourceSettingsRequestFromPlan(plan)); err != nil {
+		// Only a dropped connection can hide a save that worked. Any other
+		// error is real, and after a mode switch adopting would hide it.
+		if !isConnectionError(err) {
+			resp.Diagnostics.AddError("Unable to set resource settings", err.Error())
+			return
+		}
 		// POST may have been processed before the connection dropped (EOF-during-POST).
 		// Poll GetResourceSettings up to 3 times before treating this as a hard failure.
 		adopted := false
@@ -133,6 +140,13 @@ func (r *resourceSettings) Create(ctx context.Context, req tfresource.CreateRequ
 	}
 
 	// Read back to populate the computed resource_type from the backend.
+	if switched {
+		if err := verifyAggressionModesSaved(ctx, "resource "+plan.ResourceID.ValueString(), resourceModeInPlace(plan)); err != nil {
+			resp.Diagnostics.AddError("Resource aggression mode reverted", err.Error())
+			return
+		}
+	}
+
 	r.refreshFromBackend(&plan, &resp.Diagnostics)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
@@ -174,7 +188,8 @@ func (r *resourceSettings) Update(ctx context.Context, req tfresource.UpdateRequ
 		return
 	}
 
-	if err := switchResourceAggressionMode(plan); err != nil {
+	switched, err := switchResourceAggressionMode(ctx, plan)
+	if err != nil {
 		resp.Diagnostics.AddError("Unable to set resource aggression mode", err.Error())
 		return
 	}
@@ -182,6 +197,13 @@ func (r *resourceSettings) Update(ctx context.Context, req tfresource.UpdateRequ
 	if err := resource.UpdateResourceSettings(plan.ResourceID.ValueString(), resourceSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to update resource settings", err.Error())
 		return
+	}
+
+	if switched {
+		if err := verifyAggressionModesSaved(ctx, "resource "+plan.ResourceID.ValueString(), resourceModeInPlace(plan)); err != nil {
+			resp.Diagnostics.AddError("Resource aggression mode reverted", err.Error())
+			return
+		}
 	}
 
 	r.refreshFromBackend(&plan, &resp.Diagnostics)
@@ -212,6 +234,17 @@ func (r *resourceSettings) Delete(ctx context.Context, req tfresource.DeleteRequ
 
 func (r *resourceSettings) ImportState(ctx context.Context, req tfresource.ImportStateRequest, resp *tfresource.ImportStateResponse) {
 	tfresource.ImportStatePassthroughID(ctx, path.Root("resource_id"), req, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Fill aggression_mode as account and group import do, so a config that
+	// sets it plans clean. Read refreshes it only once it is in state. A read
+	// error is left to Read, which runs next and reports it.
+	settings, err := resource.GetResourceSettings(req.ID)
+	if err != nil || settings == nil || settings.AggressionMode == "" {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("aggression_mode"), settings.AggressionMode)...)
 }
 
 // refreshFromBackend re-reads the resource settings and populates the
@@ -236,24 +269,38 @@ func (r *resourceSettings) refreshFromBackend(state *resourceSettingsModel, diag
 
 // switchResourceAggressionMode switches the resource's aggression mode to
 // the planned one before the settings save. The SDK refuses TURBO on a
-// resource that isn't Kubernetes before sending anything.
-func switchResourceAggressionMode(p resourceSettingsModel) error {
+// resource that isn't Kubernetes before sending anything. It reports whether
+// it switched; then it has already waited until the API returns the new mode
+// consistently, and the caller verifies after the save.
+func switchResourceAggressionMode(ctx context.Context, p resourceSettingsModel) (bool, error) {
 	wanted := stringPtr(p.AggressionMode)
 	if wanted == nil {
-		return nil
+		return false, nil
 	}
 	resourceID := p.ResourceID.ValueString()
 	current, err := resource.GetResourceSettings(resourceID)
 	if err != nil {
-		return fmt.Errorf("could not read the current aggression mode of resource %s: %w", resourceID, err)
+		return false, fmt.Errorf("could not read the current aggression mode of resource %s: %w", resourceID, err)
 	}
 	if current != nil && current.AggressionMode == *wanted {
-		return nil
+		return false, nil
 	}
 	if err := aggressionmode.SetResourceMode(resourceID, constants.AggressionMode(*wanted)); err != nil {
-		return withSwitchHint(err)
+		return false, withSwitchHint(err)
 	}
-	return nil
+	return true, awaitAggressionModes(ctx, "resource "+resourceID, resourceModeInPlace(p))
+}
+
+// resourceModeInPlace reports whether the resource's live mode is the
+// planned one.
+func resourceModeInPlace(p resourceSettingsModel) func() (bool, error) {
+	return func() (bool, error) {
+		current, err := resource.GetResourceSettings(p.ResourceID.ValueString())
+		if err != nil || current == nil {
+			return false, err
+		}
+		return current.AggressionMode == p.AggressionMode.ValueString(), nil
+	}
 }
 
 // refreshResourceAggressionMode copies the backend's mode into state when

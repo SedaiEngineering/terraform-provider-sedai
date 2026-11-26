@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -54,7 +55,13 @@ func (a *switchAPI) start(t *testing.T) {
 					"attributes": map[string]interface{}{"setting": s},
 				}}
 			}
-		default: // the /mode switch endpoints
+		default: // the /mode switch endpoints apply the mode, as Sedai does
+			mode := r.URL.Query().Get("mode")
+			if strings.HasPrefix(r.URL.Path, "/api/settingsV2/topology/configs/group/") {
+				a.groupMode = mode
+			} else {
+				a.resMode = mode
+			}
 			body = map[string]interface{}{"status": "OK", "result": true}
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -101,25 +108,35 @@ func resourcePlan(mode string) resourceSettingsModel {
 	return resourceSettingsModel{ResourceID: basetypes.NewStringValue("kube-1"), AggressionMode: m}
 }
 
+func switchGroupModes(p groupSettingsResourceModel) error {
+	_, err := switchGroupAggressionModes(context.Background(), p)
+	return err
+}
+
+func switchResourceMode(p resourceSettingsModel) error {
+	_, err := switchResourceAggressionMode(context.Background(), p)
+	return err
+}
+
 func TestSettingsSwitchGroupAggressionModes(t *testing.T) {
 	t.Run("not managed: no request at all", func(t *testing.T) {
 		a := &switchAPI{groupMode: "PROD"}
 		a.start(t)
-		if err := switchGroupAggressionModes(groupPlan("")); err != nil || a.count() != 0 {
+		if err := switchGroupModes(groupPlan("")); err != nil || a.count() != 0 {
 			t.Errorf("want no error and no request, got %v, %d requests", err, a.count())
 		}
 	})
 	t.Run("already in place: read only, no switch", func(t *testing.T) {
 		a := &switchAPI{groupMode: "TURBO"}
 		a.start(t)
-		if err := switchGroupAggressionModes(groupPlan("TURBO")); err != nil || len(a.posts()) != 0 {
+		if err := switchGroupModes(groupPlan("TURBO")); err != nil || len(a.posts()) != 0 {
 			t.Errorf("want no error and no POST, got %v, %v", err, a.posts())
 		}
 	})
 	t.Run("different: one switch", func(t *testing.T) {
 		a := &switchAPI{groupMode: "PROD"}
 		a.start(t)
-		err := switchGroupAggressionModes(groupPlan("TURBO"))
+		err := switchGroupModes(groupPlan("TURBO"))
 		if p := a.posts(); err != nil || len(p) != 1 || p[0] != "POST /api/settingsV2/topology/configs/group/mode" {
 			t.Errorf("want one group switch, got %v, %v", err, p)
 		}
@@ -127,7 +144,7 @@ func TestSettingsSwitchGroupAggressionModes(t *testing.T) {
 	t.Run("no settings: clear error, no switch", func(t *testing.T) {
 		a := &switchAPI{}
 		a.start(t)
-		err := switchGroupAggressionModes(groupPlan("TURBO"))
+		err := switchGroupModes(groupPlan("TURBO"))
 		if err == nil || !strings.Contains(err.Error(), "has no settings yet") || len(a.posts()) != 0 {
 			t.Errorf("want a no-settings error and no POST, got %v, %v", err, a.posts())
 		}
@@ -138,21 +155,21 @@ func TestSettingsSwitchResourceAggressionMode(t *testing.T) {
 	t.Run("not managed: no request at all", func(t *testing.T) {
 		a := &switchAPI{resMode: "PROD"}
 		a.start(t)
-		if err := switchResourceAggressionMode(resourcePlan("")); err != nil || a.count() != 0 {
+		if err := switchResourceMode(resourcePlan("")); err != nil || a.count() != 0 {
 			t.Errorf("want no error and no request, got %v, %d requests", err, a.count())
 		}
 	})
 	t.Run("already in place: no switch", func(t *testing.T) {
 		a := &switchAPI{resMode: "EXPEDITE"}
 		a.start(t)
-		if err := switchResourceAggressionMode(resourcePlan("EXPEDITE")); err != nil || len(a.posts()) != 0 {
+		if err := switchResourceMode(resourcePlan("EXPEDITE")); err != nil || len(a.posts()) != 0 {
 			t.Errorf("want no error and no POST, got %v, %v", err, a.posts())
 		}
 	})
 	t.Run("different: one switch", func(t *testing.T) {
 		a := &switchAPI{resMode: "PROD"}
 		a.start(t)
-		err := switchResourceAggressionMode(resourcePlan("EXPEDITE"))
+		err := switchResourceMode(resourcePlan("EXPEDITE"))
 		if p := a.posts(); err != nil || len(p) != 1 || p[0] != "POST /api/settingsV2/topology/configs/resource/mode" {
 			t.Errorf("want one resource switch, got %v, %v", err, p)
 		}
@@ -161,7 +178,7 @@ func TestSettingsSwitchResourceAggressionMode(t *testing.T) {
 		srv := httptest.NewServer(http.NotFoundHandler())
 		srv.Close() // connection refused
 		impl.SetConfig(srv.URL, "fake-token")
-		err := switchResourceAggressionMode(resourcePlan("TURBO"))
+		err := switchResourceMode(resourcePlan("TURBO"))
 		if err == nil || !strings.Contains(err.Error(), "could not read the current aggression mode of resource kube-1") {
 			t.Errorf("want a wrapped read error, got %v", err)
 		}

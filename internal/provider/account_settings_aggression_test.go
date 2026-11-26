@@ -20,6 +20,7 @@ import (
 func fakeAccountServer(t *testing.T, notReady int) (*httptest.Server, func() (reads int, switches []string)) {
 	var mu sync.Mutex
 	reads := 0
+	mode := "PROD"
 	var switches []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
@@ -33,14 +34,18 @@ func fakeAccountServer(t *testing.T, notReady int) (*httptest.Server, func() (re
 				return
 			}
 			kube := map[string]interface{}{
-				"isProd":           map[string]interface{}{"enabled": true},
-				"optimizationMode": map[string]interface{}{"mode": "PROD"},
+				"isProd":           map[string]interface{}{"enabled": mode == "PROD"},
+				"optimizationMode": map[string]interface{}{"mode": mode},
 			}
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "OK", "result": map[string]interface{}{
-				"attributes": map[string]interface{}{"setting": map[string]interface{}{"kubeSettings": kube}},
+				"attributes": map[string]interface{}{"setting": map[string]interface{}{
+					"appCommonSettings": map[string]interface{}{}, // the SDK parses sections only when present
+					"kubeSettings":      kube,
+				}},
 			}})
 		case "/api/settingsV2/topology/configs/account/mode":
 			switches = append(switches, r.URL.Query().Get("resourceType")+":"+r.URL.Query().Get("mode"))
+			mode = r.URL.Query().Get("mode")
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "OK", "result": true})
 		default:
 			http.NotFound(w, r)
@@ -74,12 +79,13 @@ func TestSettingsSwitchAccountAggressionModes_WaitsForSettings(t *testing.T) {
 	fastAccountRetries(t)
 	_, stats := fakeAccountServer(t, 2)
 
-	if err := switchAccountAggressionModes(context.Background(), turboAccountPlan()); err != nil {
+	if _, err := switchAccountAggressionModes(context.Background(), turboAccountPlan()); err != nil {
 		t.Fatalf("want the switch to succeed once settings exist, got %v", err)
 	}
 	reads, switches := stats()
-	if reads != 3 || len(switches) != 1 || switches[0] != "KUBE:TURBO" {
-		t.Errorf("want 3 reads then one KUBE:TURBO switch, got %d reads, switches %v", reads, switches)
+	// 3 reads until settings exist, one KUBE:TURBO switch, then 3 matching reads.
+	if reads != 6 || len(switches) != 1 || switches[0] != "KUBE:TURBO" {
+		t.Errorf("want 3 reads, one KUBE:TURBO switch, 3 reads, got %d reads, switches %v", reads, switches)
 	}
 }
 
@@ -87,7 +93,7 @@ func TestSettingsSwitchAccountAggressionModes_GivesUp(t *testing.T) {
 	fastAccountRetries(t)
 	_, stats := fakeAccountServer(t, 100)
 
-	err := switchAccountAggressionModes(context.Background(), turboAccountPlan())
+	_, err := switchAccountAggressionModes(context.Background(), turboAccountPlan())
 	if err == nil || !strings.Contains(err.Error(), "still has no settings") {
 		t.Fatalf("want a clear give-up error, got %v", err)
 	}
@@ -102,7 +108,7 @@ func TestSettingsSwitchAccountAggressionModes_StopsWhenCancelled(t *testing.T) {
 	cancel()
 
 	start := time.Now()
-	err := switchAccountAggressionModes(ctx, turboAccountPlan())
+	_, err := switchAccountAggressionModes(ctx, turboAccountPlan())
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("want context.Canceled, got %v", err)
 	}
