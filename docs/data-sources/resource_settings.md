@@ -21,6 +21,7 @@ Read the current settings for a specific Sedai-managed resource. Returns the ava
 
 ### Read-Only
 
+- `aggression_mode` (String) The resource's aggression mode (`PROD`, `EXPEDITE` or `TURBO`). Null for resources that are not Kubernetes or ECS.
 - `availability_mode` (String) The resource's current availability mode (`DATA_PILOT`, `CO_PILOT`, or `AUTO`).
 - `optimization_mode` (String) The resource's current optimization mode (`DATA_PILOT`, `CO_PILOT`, or `AUTO`).
 - `resource_type` (String) The resource type as reported by the backend (e.g. `AWS_LAMBDA`, `AWS_EC2`).

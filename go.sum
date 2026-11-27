@@ -6,6 +6,8 @@ github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/SedaiEngineering/sedai-sdk-go v1.3.4 h1:A4yL9j6QPmiJs2v6ifsCkWpQuZLURXq61CPin38yqfA=
 github.com/SedaiEngineering/sedai-sdk-go v1.3.4/go.mod h1:gj6Ogb4X1WZw5ha/QDkY3Mz80/u+uxDgCW8tGb8RX+4=
+github.com/SedaiEngineering/sedai-sdk-go v1.3.5-0.20261119082402-14a3d2a81060 h1:/ZzJfM7M0yhYUHdisDnvxf2Dnn+3ICPeZkb+1spTdIY=
+github.com/SedaiEngineering/sedai-sdk-go v1.3.5-0.20261119082402-14a3d2a81060/go.mod h1:gj6Ogb4X1WZw5ha/QDkY3Mz80/u+uxDgCW8tGb8RX+4=
 github.com/agext/levenshtein v1.2.2 h1:0S/Yg6LYmFJ5stwQeRp6EeOcCbj7xiqQSdNelsXvaqE=
 github.com/agext/levenshtein v1.2.2/go.mod h1:JEDfjyjHDjOF/1e4FlBE/PkbqA9OfWu2ki2W0IB5558=
 github.com/apparentlymart/go-textseg/v12 v12.0.0/go.mod h1:S/4uRK2UtaQttw1GenVJEynmyUenKwP++x/+DdGV/Ec=

@@ -33,6 +33,8 @@ type kubeAppSettingsModel struct {
 	MaxLatencyIncreasePct              basetypes.Int64Value   `tfsdk:"max_latency_increase_pct"`
 	MaxCPUIncreasePct                  basetypes.Int64Value   `tfsdk:"max_cpu_increase_pct"`
 	MaxMemoryIncreasePct               basetypes.Int64Value   `tfsdk:"max_memory_increase_pct"`
+	// AggressionMode is switched, never saved: kubeAppSettingsToSDK skips it.
+	AggressionMode basetypes.StringValue `tfsdk:"aggression_mode"`
 }
 
 // kubeAppSettingsBlock returns the `kube_app_settings { … }` block schema
@@ -117,6 +119,11 @@ func kubeAppSettingsBlock() schema.SingleNestedBlock {
 				Optional:    true,
 				Description: "Guardrail: maximum acceptable memory increase % during optimization.",
 			},
+			"aggression_mode": schema.StringAttribute{
+				Optional:    true,
+				Description: aggressionModeDescription("Kubernetes workloads", "`PROD`, `EXPEDITE`, `TURBO`", "`vertical_scaling_min_cpu_cores` and `vertical_scaling_min_memory_bytes`"),
+				Validators:  []validator.String{aggressionModeValidator()},
+			},
 		},
 	}
 }
@@ -178,6 +185,7 @@ func kubeAppSettingsRefresh(state *kubeAppSettingsModel, fetched *sdksettings.Ku
 	refreshInt64IfManaged(&state.MaxLatencyIncreasePct, fetched.MaxLatencyIncreasePct)
 	refreshInt64IfManaged(&state.MaxCPUIncreasePct, fetched.MaxCPUIncreasePct)
 	refreshInt64IfManaged(&state.MaxMemoryIncreasePct, fetched.MaxMemoryIncreasePct)
+	refreshIfManaged(&state.AggressionMode, fetched.AggressionMode)
 	return state
 }
 

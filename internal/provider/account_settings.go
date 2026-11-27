@@ -2,10 +2,13 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/account"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/aggressionmode"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/constants"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -128,6 +131,9 @@ func (v accountSettingsModeValidator) ValidateResource(ctx context.Context, req 
 	); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 	}
+	for _, msg := range validateAggressionModeConflicts(cfg.KubeAppSettings, cfg.ECSAppSettings) {
+		resp.Diagnostics.AddError("Invalid is_prod and aggression_mode combination", msg)
+	}
 }
 
 func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -138,6 +144,11 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	// Mode conflict validation runs at plan time via ConfigValidators.
+
+	if err := switchAccountAggressionModes(ctx, plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set account aggression mode", err.Error())
+		return
+	}
 
 	// Retry on "settings not available" — transient error when the backend's
 	// settings subsystem hasn't finished initializing the account yet.
@@ -162,6 +173,12 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	if updateErr != nil {
+		// Only a dropped connection can hide a save that worked. Any other
+		// error is real, and after a mode switch adopting would hide it.
+		if !isConnectionError(updateErr) {
+			resp.Diagnostics.AddError("Unable to set account settings", updateErr.Error())
+			return
+		}
 		// POST may have been processed before the connection dropped (EOF-during-POST).
 		// Poll GetAccountSettings up to 3 times before treating this as a hard failure.
 		adopted := false
@@ -234,6 +251,11 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Mode conflict validation runs at plan time via ConfigValidators.
 
+	if err := switchAccountAggressionModes(ctx, plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set account aggression mode", err.Error())
+		return
+	}
+
 	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to update account settings", err.Error())
 		return
@@ -288,6 +310,65 @@ func (r *accountSettings) ImportState(ctx context.Context, req resource.ImportSt
 	state.VolumeSettings = volumeSettingsFromSDK(settings.VolumeSettings)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+}
+
+// accountSettingsRetryDelay is the wait before retry attempt n (2s … 32s).
+// A variable so tests can shorten it.
+var accountSettingsRetryDelay = func(attempt int) time.Duration {
+	return time.Duration(2<<uint(attempt)) * time.Second
+}
+
+// switchAccountAggressionModes switches the account's Kubernetes and ECS
+// aggression modes to the planned ones. It runs before the settings save, so
+// a guardrail set in the same block is written after the switch resets it.
+// After a switch it waits until the API returns the new modes consistently.
+func switchAccountAggressionModes(ctx context.Context, p accountSettingsResourceModel) error {
+	if !wantedAggressionModes(p.KubeAppSettings, p.ECSAppSettings) {
+		return nil
+	}
+	accountID := p.AccountID.ValueString()
+	current, err := account.GetAccountSettings(accountID)
+	// A new account's settings may not exist yet: the same window the save
+	// retry in Create covers, which this step runs ahead of.
+	for attempt := 0; err == nil && current == nil && attempt < 5; attempt++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(accountSettingsRetryDelay(attempt)):
+		}
+		current, err = account.GetAccountSettings(accountID)
+	}
+	if err != nil {
+		return fmt.Errorf("could not read the current aggression mode of account %s: %w", accountID, err)
+	}
+	if current == nil {
+		return fmt.Errorf("account %s still has no settings after about 60s, so its aggression mode can't be switched; run terraform apply again", accountID)
+	}
+	curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
+	switches := pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)
+	if len(switches) == 0 {
+		return nil
+	}
+	if err := applyAggressionModeSwitches(switches,
+		func(rt constants.AggressionModeResourceType, mode constants.AggressionMode) error {
+			return aggressionmode.SetAccountMode(accountID, rt, mode)
+		}); err != nil {
+		return err
+	}
+	return awaitAggressionModes(ctx, "account "+accountID, accountModesInPlace(p))
+}
+
+// accountModesInPlace reports whether the account's live modes are the
+// planned ones.
+func accountModesInPlace(p accountSettingsResourceModel) func() (bool, error) {
+	return func() (bool, error) {
+		current, err := account.GetAccountSettings(p.AccountID.ValueString())
+		if err != nil || current == nil {
+			return false, err
+		}
+		curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
+		return len(pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)) == 0, nil
+	}
 }
 
 func accountSettingsRequestFromPlan(p accountSettingsResourceModel) *account.AccountSettings {

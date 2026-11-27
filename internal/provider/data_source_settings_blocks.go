@@ -30,6 +30,7 @@ func dataSourceKubeAppSettingsBlock() dsschema.SingleNestedBlock {
 			"max_latency_increase_pct":              dsschema.Int64Attribute{Computed: true},
 			"max_cpu_increase_pct":                  dsschema.Int64Attribute{Computed: true},
 			"max_memory_increase_pct":               dsschema.Int64Attribute{Computed: true},
+			"aggression_mode":                       dsschema.StringAttribute{Computed: true, Description: "Aggression mode: `PROD`, `EXPEDITE` or `TURBO`."},
 		},
 	}
 }
@@ -102,6 +103,7 @@ func dataSourceECSAppSettingsBlock() dsschema.SingleNestedBlock {
 			"horizontal_scaling_replica_increment": dsschema.Int64Attribute{Computed: true},
 			"vertical_scaling_min_cpu":             dsschema.Int64Attribute{Computed: true},
 			"vertical_scaling_min_memory":          dsschema.Int64Attribute{Computed: true},
+			"aggression_mode":                      dsschema.StringAttribute{Computed: true, Description: "Aggression mode: `PROD` or `EXPEDITE` (`TURBO` only if set outside Terraform)."},
 		},
 	}
 }

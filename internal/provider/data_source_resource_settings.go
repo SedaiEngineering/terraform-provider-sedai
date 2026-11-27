@@ -23,6 +23,7 @@ type dataSourceResourceSettingsModel struct {
 	OptimizationMode basetypes.StringValue `tfsdk:"optimization_mode"`
 	SedaiSyncEnabled basetypes.BoolValue   `tfsdk:"sedai_sync_enabled"`
 	ResourceType     basetypes.StringValue `tfsdk:"resource_type"`
+	AggressionMode   basetypes.StringValue `tfsdk:"aggression_mode"`
 }
 
 func (d *dataSourceResourceSettings) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -53,6 +54,10 @@ func (d *dataSourceResourceSettings) Schema(_ context.Context, _ datasource.Sche
 				Computed:    true,
 				Description: "The resource type as reported by the backend (e.g. `AWS_LAMBDA`, `AWS_EC2`).",
 			},
+			"aggression_mode": schema.StringAttribute{
+				Computed:    true,
+				Description: "The resource's aggression mode (`PROD`, `EXPEDITE` or `TURBO`). Null for resources that are not Kubernetes or ECS.",
+			},
 		},
 	}
 }
@@ -81,6 +86,10 @@ func (d *dataSourceResourceSettings) Read(ctx context.Context, req datasource.Re
 	config.OptimizationMode = basetypes.NewStringValue(settings.OptimizationMode)
 	config.SedaiSyncEnabled = basetypes.NewBoolValue(settings.SedaiSyncEnabled)
 	config.ResourceType = basetypes.NewStringValue(settings.ResourceType)
+	config.AggressionMode = basetypes.NewStringNull()
+	if settings.AggressionMode != "" {
+		config.AggressionMode = basetypes.NewStringValue(settings.AggressionMode)
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, config)...)
 }

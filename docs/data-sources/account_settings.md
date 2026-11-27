@@ -81,6 +81,7 @@ Read-Only:
 
 Read-Only:
 
+- `aggression_mode` (String) Aggression mode: `PROD` or `EXPEDITE` (`TURBO` only if set outside Terraform).
 - `availability_mode` (String)
 - `horizontal_scaling_enabled` (Boolean)
 - `horizontal_scaling_max_replicas` (Number)
@@ -105,6 +106,7 @@ Read-Only:
 
 Read-Only:
 
+- `aggression_mode` (String) Aggression mode: `PROD`, `EXPEDITE` or `TURBO`.
 - `availability_mode` (String)
 - `horizontal_scaling_enabled` (Boolean)
 - `horizontal_scaling_max_replicas` (Number)

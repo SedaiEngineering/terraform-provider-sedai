@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/aggressionmode"
+	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/constants"
 	"github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/groups"
 	sdksettings "github.com/SedaiEngineering/sedai-sdk-go/sdk/sedai/settings"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -142,6 +145,9 @@ func (v groupSettingsModeValidator) ValidateResource(ctx context.Context, req re
 	); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
 	}
+	for _, msg := range validateAggressionModeConflicts(cfg.KubeAppSettings, cfg.ECSAppSettings) {
+		resp.Diagnostics.AddError("Invalid is_prod and aggression_mode combination", msg)
+	}
 }
 
 func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -166,7 +172,18 @@ func (r *groupSettings) Create(ctx context.Context, req resource.CreateRequest, 
 		// Settings already exist on the backend — fall through to UpdateGroupSettings.
 	}
 
+	if err := switchGroupAggressionModes(ctx, plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set group aggression mode", err.Error())
+		return
+	}
+
 	if err := groups.UpdateGroupSettings(plan.GroupID.ValueString(), groupSettingsRequestFromPlan(plan)); err != nil {
+		// Only a dropped connection can hide a save that worked. Any other
+		// error is real, and after a mode switch adopting would hide it.
+		if !isConnectionError(err) {
+			resp.Diagnostics.AddError("Unable to set group settings", err.Error())
+			return
+		}
 		// POST may have been processed before the connection dropped (EOF-during-POST).
 		// Poll GetGroupSettings up to 3 times before treating this as a hard failure.
 		adopted := false
@@ -251,6 +268,11 @@ func (r *groupSettings) Update(ctx context.Context, req resource.UpdateRequest, 
 
 	if err := validateTopLevelModeConflicts(plan.AvailabilityMode.ValueString(), plan.OptimizationMode.ValueString(), plan.AppSettings, plan.BucketSettings, plan.VolumeSettings, plan.ServerlessSettings); err != "" {
 		resp.Diagnostics.AddError("Invalid mode combination", err)
+		return
+	}
+
+	if err := switchGroupAggressionModes(ctx, plan); err != nil {
+		resp.Diagnostics.AddError("Unable to set group aggression mode", err.Error())
 		return
 	}
 
@@ -346,6 +368,7 @@ func kubeAppSettingsFromSDK(s *sdksettings.KubeAppSettings) *kubeAppSettingsMode
 		MaxLatencyIncreasePct:              nullableInt64(s.MaxLatencyIncreasePct),
 		MaxCPUIncreasePct:                  nullableInt64(s.MaxCPUIncreasePct),
 		MaxMemoryIncreasePct:               nullableInt64(s.MaxMemoryIncreasePct),
+		AggressionMode:                     nullableString(s.AggressionMode),
 	}
 }
 
@@ -418,6 +441,7 @@ func ecsAppSettingsFromSDK(s *sdksettings.ECSAppSettings) *ecsAppSettingsModel {
 		HorizontalScalingReplicaIncrement: nullableInt64(s.HorizontalScalingReplicaIncrement),
 		VerticalScalingMinCPU:             nullableInt64(s.VerticalScalingMinCPU),
 		VerticalScalingMinMemory:          nullableInt64(s.VerticalScalingMinMemory),
+		AggressionMode:                    nullableString(s.AggressionMode),
 	}
 }
 
@@ -444,6 +468,48 @@ func volumeSettingsFromSDK(s *sdksettings.VolumeSettings) *volumeSettingsModel {
 		AvailabilityMode: nullableString(s.AvailabilityMode),
 		OptimizationMode: nullableString(s.OptimizationMode),
 		SedaiSyncEnabled: nullableBool(s.SedaiSyncEnabled),
+	}
+}
+
+// switchGroupAggressionModes switches the group's Kubernetes and ECS
+// aggression modes to the planned ones, before the settings save (see
+// switchAccountAggressionModes).
+func switchGroupAggressionModes(ctx context.Context, p groupSettingsResourceModel) error {
+	if !wantedAggressionModes(p.KubeAppSettings, p.ECSAppSettings) {
+		return nil
+	}
+	groupID := p.GroupID.ValueString()
+	current, err := groups.GetGroupSettings(groupID)
+	if err != nil {
+		return fmt.Errorf("could not read the current aggression mode of group %s: %w", groupID, err)
+	}
+	if current == nil {
+		return fmt.Errorf("group %s has no settings yet, so its aggression mode can't be switched; run terraform apply again", groupID)
+	}
+	curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
+	switches := pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)
+	if len(switches) == 0 {
+		return nil
+	}
+	if err := applyAggressionModeSwitches(switches,
+		func(rt constants.AggressionModeResourceType, mode constants.AggressionMode) error {
+			return aggressionmode.SetGroupMode(groupID, rt, mode)
+		}); err != nil {
+		return err
+	}
+	return awaitAggressionModes(ctx, "group "+groupID, groupModesInPlace(p))
+}
+
+// groupModesInPlace reports whether the group's live modes are the planned
+// ones.
+func groupModesInPlace(p groupSettingsResourceModel) func() (bool, error) {
+	return func() (bool, error) {
+		current, err := groups.GetGroupSettings(p.GroupID.ValueString())
+		if err != nil || current == nil {
+			return false, err
+		}
+		curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
+		return len(pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)) == 0, nil
 	}
 }
 

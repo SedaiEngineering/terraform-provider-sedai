@@ -9,4 +9,10 @@ description: |-
 
 Manages the top-level settings for a Sedai account. Applies as the baseline default for every resource in the account. Only attributes specified here are tracked for drift — unmanaged per-resource-type tuning is preserved as-is.
 
+## Example Usage: aggression mode (Turbo)
+
+`aggression_mode` sets how aggressively Sedai optimizes Kubernetes and ECS workloads: `PROD`, `EXPEDITE` or `TURBO` ("Speed" in the Sedai UI, Kubernetes only). It is not `optimization_mode`. It needs Sedai 1.148 or later and an admin-role API key.
+
+{{tffile "examples/resources/sedai_account_settings/aggression_mode.tf"}}
+
 {{.SchemaMarkdown}}
