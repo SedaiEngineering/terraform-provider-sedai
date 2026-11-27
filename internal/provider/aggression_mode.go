@@ -21,7 +21,7 @@ import (
 // guardrails, so an apply switches first and saves the other fields after
 // (SED-24715).
 
-const aggressionModeSwitchHint = "Switching the aggression mode needs Sedai 1.148 or later and an admin-role API key."
+const aggressionModeSwitchHint = "If Sedai rejected the request, check that it runs 1.148 or later and that the API key has the admin role."
 
 // aggressionModeValidator accepts every mode; used on kube_app_settings and
 // sedai_resource_settings.
@@ -56,12 +56,11 @@ func (ecsNoTurboValidator) ValidateString(_ context.Context, req validator.Strin
 func aggressionModeDescription(what, valid, guardrails string) string {
 	return fmt.Sprintf("How aggressively Sedai optimizes %s. Valid: %s. Not the same as `optimization_mode` "+
 		"(Data Pilot / Co-Pilot / Autopilot). A change is applied as a mode switch, before the other settings "+
-		"are saved: the switch resets %s to the mode's defaults (a value set in this block is written again "+
-		"after it), and turns autonomous action without traffic on for EXPEDITE and TURBO and off for PROD. "+
-		"If the save fails after the switch, the apply fails and the mode's default guardrails stay until the "+
+		"are saved: the switch resets %s to the mode's defaults, and a value set in this block is written again "+
+		"after it. If the save fails after the switch, the apply fails and the mode's default guardrails stay until the "+
 		"next apply, which writes the configured values again without switching. "+
 		"Must agree with `is_prod` when both are set (`is_prod = true` only with `PROD`). Needs Sedai 1.148 or "+
-		"later and an admin-role API key. Destroying the resource leaves the mode as it is.", what, valid, guardrails)
+		"later and an admin-role API key.", what, valid, guardrails)
 }
 
 func aggressionModeStrings(modes []constants.AggressionMode) []string {
@@ -162,12 +161,10 @@ func withSwitchHint(err error) error {
 	return fmt.Errorf("%w. %s", err, aggressionModeSwitchHint)
 }
 
-// settleTiming controls the wait after a switch and the check after the save.
+// settleTiming controls the wait after a switch.
 type settleTiming struct {
 	interval, timeout time.Duration
 	reads             int // matching reads in a row before saving
-	verifyInterval    time.Duration
-	verifyReads       int // reads after the save; any mismatch fails
 }
 
 // Each Sedai API pod keeps its own near cache of settings. After a switch,
@@ -175,10 +172,7 @@ type settleTiming struct {
 // the SDK's save posts back the settings it read, so a stale read writes the
 // old mode back. Seven matching reads 2 s apart span that window. A var so
 // tests can shorten it.
-var aggressionModeSettle = settleTiming{
-	interval: 2 * time.Second, timeout: 90 * time.Second, reads: 7,
-	verifyInterval: time.Second, verifyReads: 3,
-}
+var aggressionModeSettle = settleTiming{interval: 2 * time.Second, timeout: 90 * time.Second, reads: 7}
 
 // awaitAggressionModes waits until inPlace reports the planned modes on
 // aggressionModeSettle.reads reads in a row.
@@ -207,29 +201,6 @@ func awaitAggressionModes(ctx context.Context, what string, inPlace func() (bool
 		case <-time.After(aggressionModeSettle.interval):
 		}
 	}
-}
-
-// verifyAggressionModesSaved fails if any read after the save shows another
-// mode: the save then wrote back settings cached before the switch.
-func verifyAggressionModesSaved(ctx context.Context, what string, inPlace func() (bool, error)) error {
-	for i := 0; i < aggressionModeSettle.verifyReads; i++ {
-		if i > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(aggressionModeSettle.verifyInterval):
-			}
-		}
-		ok, err := inPlace()
-		if err != nil {
-			return fmt.Errorf("could not read back the aggression mode of %s after the save: %w", what, err)
-		}
-		if !ok {
-			return fmt.Errorf("the settings save restored the previous aggression mode of %s: Sedai returned "+
-				"settings cached before the switch. Run terraform apply again", what)
-		}
-	}
-	return nil
 }
 
 // sectionModes returns the current Kubernetes and ECS modes of a settings

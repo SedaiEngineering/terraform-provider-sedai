@@ -145,8 +145,7 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 
 	// Mode conflict validation runs at plan time via ConfigValidators.
 
-	switched, err := switchAccountAggressionModes(ctx, plan)
-	if err != nil {
+	if err := switchAccountAggressionModes(ctx, plan); err != nil {
 		resp.Diagnostics.AddError("Unable to set account aggression mode", err.Error())
 		return
 	}
@@ -203,13 +202,6 @@ func (r *accountSettings) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
-	if switched {
-		if err := verifyAggressionModesSaved(ctx, "account "+plan.AccountID.ValueString(), accountModesInPlace(plan)); err != nil {
-			resp.Diagnostics.AddError("Account aggression mode reverted", err.Error())
-			return
-		}
-	}
-
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
@@ -259,8 +251,7 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Mode conflict validation runs at plan time via ConfigValidators.
 
-	switched, err := switchAccountAggressionModes(ctx, plan)
-	if err != nil {
+	if err := switchAccountAggressionModes(ctx, plan); err != nil {
 		resp.Diagnostics.AddError("Unable to set account aggression mode", err.Error())
 		return
 	}
@@ -268,13 +259,6 @@ func (r *accountSettings) Update(ctx context.Context, req resource.UpdateRequest
 	if err := account.UpdateAccountSettings(plan.AccountID.ValueString(), accountSettingsRequestFromPlan(plan)); err != nil {
 		resp.Diagnostics.AddError("Unable to update account settings", err.Error())
 		return
-	}
-
-	if switched {
-		if err := verifyAggressionModesSaved(ctx, "account "+plan.AccountID.ValueString(), accountModesInPlace(plan)); err != nil {
-			resp.Diagnostics.AddError("Account aggression mode reverted", err.Error())
-			return
-		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
@@ -337,11 +321,10 @@ var accountSettingsRetryDelay = func(attempt int) time.Duration {
 // switchAccountAggressionModes switches the account's Kubernetes and ECS
 // aggression modes to the planned ones. It runs before the settings save, so
 // a guardrail set in the same block is written after the switch resets it.
-// It reports whether it switched; then it has already waited until the API
-// returns the new modes consistently, and the caller verifies after the save.
-func switchAccountAggressionModes(ctx context.Context, p accountSettingsResourceModel) (bool, error) {
+// After a switch it waits until the API returns the new modes consistently.
+func switchAccountAggressionModes(ctx context.Context, p accountSettingsResourceModel) error {
 	if !wantedAggressionModes(p.KubeAppSettings, p.ECSAppSettings) {
-		return false, nil
+		return nil
 	}
 	accountID := p.AccountID.ValueString()
 	current, err := account.GetAccountSettings(accountID)
@@ -350,29 +333,29 @@ func switchAccountAggressionModes(ctx context.Context, p accountSettingsResource
 	for attempt := 0; err == nil && current == nil && attempt < 5; attempt++ {
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return ctx.Err()
 		case <-time.After(accountSettingsRetryDelay(attempt)):
 		}
 		current, err = account.GetAccountSettings(accountID)
 	}
 	if err != nil {
-		return false, fmt.Errorf("could not read the current aggression mode of account %s: %w", accountID, err)
+		return fmt.Errorf("could not read the current aggression mode of account %s: %w", accountID, err)
 	}
 	if current == nil {
-		return false, fmt.Errorf("account %s still has no settings after about 60s, so its aggression mode can't be switched; run terraform apply again", accountID)
+		return fmt.Errorf("account %s still has no settings after about 60s, so its aggression mode can't be switched; run terraform apply again", accountID)
 	}
 	curKube, curECS := sectionModes(current.KubeAppSettings, current.ECSAppSettings)
 	switches := pendingAggressionModeSwitches(p.KubeAppSettings, p.ECSAppSettings, curKube, curECS)
 	if len(switches) == 0 {
-		return false, nil
+		return nil
 	}
 	if err := applyAggressionModeSwitches(switches,
 		func(rt constants.AggressionModeResourceType, mode constants.AggressionMode) error {
 			return aggressionmode.SetAccountMode(accountID, rt, mode)
 		}); err != nil {
-		return false, err
+		return err
 	}
-	return true, awaitAggressionModes(ctx, "account "+accountID, accountModesInPlace(p))
+	return awaitAggressionModes(ctx, "account "+accountID, accountModesInPlace(p))
 }
 
 // accountModesInPlace reports whether the account's live modes are the

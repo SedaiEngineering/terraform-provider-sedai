@@ -33,8 +33,7 @@ type fakeModeServer struct {
 	// "resource:<id>"; value "false" (status OK, result false: nothing saved)
 	// or "500" (server error, as a server older than 1.148 answers). Keys
 	// "save:group", "save:account" and "save:resource:<id>" with "500" make
-	// the settings save fail instead. Key "revert:<scope>" makes the save
-	// write PROD back, as a save built from settings cached before the switch.
+	// the settings save fail instead.
 	failMode map[string]string
 	// staleReads makes the next n reads of a scope after a switch return the
 	// settings from before it, as another API pod's cache does on Sedai.
@@ -152,7 +151,6 @@ func newFakeModeServer() *fakeModeServer {
 				return
 			}
 			f.resources[id] = body["setting"].(map[string]interface{})
-			f.revert("resource:"+id, f.resources[id])
 			f.writes = append(f.writes, "save:resource:"+id)
 			writeOK(w, true)
 		case r.Method == http.MethodPost && strings.HasPrefix(p, "group/"):
@@ -160,7 +158,6 @@ func newFakeModeServer() *fakeModeServer {
 				return
 			}
 			readJSON(r, &f.group)
-			f.revert("group", f.group["kubeSettings"].(map[string]interface{}))
 			f.writes = append(f.writes, "save:group")
 			writeOK(w, true)
 		case r.Method == http.MethodPost && strings.HasPrefix(p, "account/"):
@@ -168,7 +165,6 @@ func newFakeModeServer() *fakeModeServer {
 				return
 			}
 			readJSON(r, &f.account)
-			f.revert("account", f.account["kubeSettings"].(map[string]interface{}))
 			f.writes = append(f.writes, "save:account")
 			writeOK(w, true)
 		default:
@@ -217,14 +213,6 @@ func (f *fakeModeServer) read(scope string, current map[string]interface{}) map[
 		return f.stale[scope]
 	}
 	return current
-}
-
-// revert writes PROD back into a saved section when "revert:<scope>" is set.
-// Called with f.mu held.
-func (f *fakeModeServer) revert(scope string, section map[string]interface{}) {
-	if f.failMode["revert:"+scope] != "" {
-		applySwitch(section, "PROD")
-	}
 }
 
 func applySwitch(section map[string]interface{}, mode string) {
@@ -561,7 +549,7 @@ func TestSettingsAggressionModeFlow_SwitchFailures(t *testing.T) {
 					f.setFailures(map[string]string{"group:KUBE": "500"})
 				},
 				Config:      both,
-				ExpectError: regexp.MustCompile(`(?s)Sedai 1\.148.*admin-role`),
+				ExpectError: regexp.MustCompile(`(?s)1\.148 or later.*admin role`),
 			},
 			// Kubernetes switches, ECS fails: the apply stops before the save.
 			{
@@ -628,8 +616,9 @@ func TestSettingsAggressionModeFlow_Resource(t *testing.T) {
 		}
 	}
 
-	// Import reads the mode, so a config that sets it plans clean, as on
-	// account and group settings.
+	// Import fills only resource_id, so existing configs without
+	// aggression_mode plan clean. A config that sets it shows a one-time
+	// diff, and its apply sends no switch because the mode already matches.
 	f.mu.Lock()
 	applySwitch(f.resources["kube-1"], "EXPEDITE")
 	f.mu.Unlock()
@@ -644,16 +633,21 @@ func TestSettingsAggressionModeFlow_Resource(t *testing.T) {
 				ImportStateId:      "kube-1",
 				ImportStatePersist: true,
 				ImportStateCheck: func(states []*terraform.InstanceState) error {
-					if got := states[0].Attributes["aggression_mode"]; got != "EXPEDITE" {
-						return fmt.Errorf("imported aggression_mode %q, want EXPEDITE", got)
+					if got, ok := states[0].Attributes["aggression_mode"]; ok {
+						return fmt.Errorf("imported aggression_mode %q, want it unset", got)
 					}
 					return nil
 				},
 			},
 			{
-				PreConfig: func() { expectWritesBefore(t, f) }, // import writes nothing
-				Config:    cfg,
-				PlanOnly:  true, // fails on any planned change
+				PreConfig:          func() { expectWritesBefore(t, f) }, // import writes nothing
+				Config:             cfg,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			},
+			{
+				Config: cfg,
+				Check:  expectWrites(f, "save:resource:kube-1"), // no switch
 			},
 		},
 	})
@@ -694,21 +688,20 @@ func TestSettingsAggressionModeFlow_SaveFailures(t *testing.T) {
 
 // TestSettingsAggressionModeFlow_StaleReads checks the guard against the API
 // pods' settings cache: after a switch, the apply waits until reads return
-// the new mode before saving, and fails if the save still wrote the old mode
-// back.
+// the new mode before saving, so the save keeps it.
 func TestSettingsAggressionModeFlow_StaleReads(t *testing.T) {
 	cases := []struct {
-		name, scope, config, resName, attr, revertTitle string
+		name, config, resName, attr string
 	}{
-		{"group", "group", groupSettingsConfig(`    aggression_mode = "TURBO"`, ``),
-			"sedai_group_settings.test", "kube_app_settings.aggression_mode", "Group aggression mode reverted"},
-		{"account", "account", accountSettingsConfig(`    aggression_mode = "TURBO"`, ``),
-			"sedai_account_settings.test", "kube_app_settings.aggression_mode", "Account aggression mode reverted"},
-		{"resource", "resource:kube-1", resourceSettingsConfig("kube-1", "TURBO"),
-			"sedai_resource_settings.test", "aggression_mode", "Resource aggression mode reverted"},
+		{"group", groupSettingsConfig(`    aggression_mode = "TURBO"`, ``),
+			"sedai_group_settings.test", "kube_app_settings.aggression_mode"},
+		{"account", accountSettingsConfig(`    aggression_mode = "TURBO"`, ``),
+			"sedai_account_settings.test", "kube_app_settings.aggression_mode"},
+		{"resource", resourceSettingsConfig("kube-1", "TURBO"),
+			"sedai_resource_settings.test", "aggression_mode"},
 	}
 	for _, c := range cases {
-		t.Run(c.name+"/waits for fresh reads", func(t *testing.T) {
+		t.Run(c.name, func(t *testing.T) {
 			f := useFakeServer(t)
 			f.staleReads = 2 // fewer than the reads in a row the tests require
 			resource.UnitTest(t, resource.TestCase{
@@ -717,17 +710,6 @@ func TestSettingsAggressionModeFlow_StaleReads(t *testing.T) {
 					{Config: c.config, Check: resource.TestCheckResourceAttr(c.resName, c.attr, "TURBO")},
 					{Config: c.config, PlanOnly: true}, // the save kept TURBO: no drift
 				},
-			})
-		})
-		t.Run(c.name+"/fails when the save reverts the mode", func(t *testing.T) {
-			f := useFakeServer(t)
-			f.setFailures(map[string]string{"revert:" + c.scope: "1"})
-			resource.UnitTest(t, resource.TestCase{
-				ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-				Steps: []resource.TestStep{{
-					Config:      c.config,
-					ExpectError: regexp.MustCompile(regexp.QuoteMeta(c.revertTitle) + `(?s).*apply again`),
-				}},
 			})
 		})
 	}

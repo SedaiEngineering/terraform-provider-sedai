@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -145,34 +144,6 @@ func TestSettingsPendingAggressionModeSwitches(t *testing.T) {
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
 		}
-	}
-}
-
-func TestSettingsApplyAggressionModeSwitches_StopsAtFirstError(t *testing.T) {
-	switches := []aggressionModeSwitch{
-		{constants.AggressionModeResourceTypeKube, constants.AggressionModeTurbo},
-		{constants.AggressionModeResourceTypeECS, constants.AggressionModeExpedite},
-	}
-	var calls []string
-	sdkErr := errors.New("failed to switch the aggression mode of group g1 (KUBE): HTTP 500")
-	err := applyAggressionModeSwitches(switches, func(rt constants.AggressionModeResourceType, m constants.AggressionMode) error {
-		calls = append(calls, string(rt)+":"+string(m))
-		return sdkErr
-	})
-	if len(calls) != 1 || calls[0] != "KUBE:TURBO" {
-		t.Errorf("want only the first switch tried, got %v", calls)
-	}
-	// The SDK's message is kept once, wrapped, with the hint after it.
-	if !errors.Is(err, sdkErr) || strings.Count(err.Error(), "group g1") != 1 || !strings.Contains(err.Error(), "1.148") {
-		t.Errorf("error should wrap the SDK error once and add the version hint, got %v", err)
-	}
-
-	calls = nil
-	if err := applyAggressionModeSwitches(switches, func(rt constants.AggressionModeResourceType, m constants.AggressionMode) error {
-		calls = append(calls, string(rt)+":"+string(m))
-		return nil
-	}); err != nil || len(calls) != 2 {
-		t.Errorf("want both switches and no error, got %v, %v", calls, err)
 	}
 }
 
